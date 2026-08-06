@@ -1,0 +1,26 @@
+{
+  "name": "拾匠 - 纯净手工教程分享平台",
+  "short_name": "拾匠",
+  "description": "手工教程、传统国风非遗、AI内容预审、问答与材料互换。",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#F5F0EB",
+  "theme_color": "#C48B67",
+  "categories": ["education", "lifestyle", "productivity"],
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,317 @@
+{
+  "updatedAt": "2026-08-06T00:00:00+08:00",
+  "categories": [
+    {
+      "id": "paper-cut",
+      "name": "传统剪纸窗花",
+      "kind": "传统国风非遗",
+      "icon": "剪",
+      "accent": "#c8102e",
+      "description": "对折、阴刻、阳刻与节庆窗花教程",
+      "keywords": ["剪纸", "窗花", "刻纸", "福字", "宣纸"]
+    },
+    {
+      "id": "embroidery",
+      "name": "苏湘传统刺绣",
+      "kind": "传统国风非遗",
+      "icon": "绣",
+      "accent": "#b85a7a",
+      "description": "平针、锁针、打籽绣等入门到进阶",
+      "keywords": ["刺绣", "绣线", "绣布", "针法", "苏绣"]
+    },
+    {
+      "id": "hairpin",
+      "name": "古风缠花发簪",
+      "kind": "传统国风非遗",
+      "icon": "簪",
+      "accent": "#d4af37",
+      "description": "蚕丝线、铜丝、花瓣定型与发簪组合",
+      "keywords": ["缠花", "发簪", "铜丝", "蚕丝线", "花瓣"]
+    },
+    {
+      "id": "seal",
+      "name": "篆刻印章",
+      "kind": "传统国风非遗",
+      "icon": "印",
+      "accent": "#6f5147",
+      "description": "石料选择、印稿上石、执刀与钤印",
+      "keywords": ["篆刻", "印章", "刻刀", "青田石", "朱文"]
+    },
+    {
+      "id": "blue-dye",
+      "name": "古法扎染蓝染",
+      "kind": "传统国风非遗",
+      "icon": "染",
+      "accent": "#2f609b",
+      "description": "扎结、浸染、氧化显色和图案设计",
+      "keywords": ["扎染", "蓝染", "靛蓝", "棉布", "扎结"]
+    },
+    {
+      "id": "lantern",
+      "name": "古风花灯灯笼",
+      "kind": "传统国风非遗",
+      "icon": "灯",
+      "accent": "#e8823b",
+      "description": "竹篾骨架、宣纸灯面与安全光源",
+      "keywords": ["花灯", "灯笼", "竹篾", "宣纸", "中秋"]
+    },
+    {
+      "id": "wood",
+      "name": "木质手工",
+      "kind": "通用手工",
+      "icon": "木",
+      "accent": "#9b6f45",
+      "description": "木片切割、打磨、拼装和表面保护",
+      "keywords": ["木作", "木质", "打磨", "榫卯", "小夜灯"]
+    },
+    {
+      "id": "clay",
+      "name": "黏土手作",
+      "kind": "通用手工",
+      "icon": "泥",
+      "accent": "#df8f80",
+      "description": "超轻黏土塑形、干燥和上色",
+      "keywords": ["黏土", "塑形", "丙烯", "上色", "手办"]
+    },
+    {
+      "id": "resin",
+      "name": "滴胶奶油胶",
+      "kind": "通用手工",
+      "icon": "胶",
+      "accent": "#d889b7",
+      "description": "滴胶调色、奶油胶裱花与配件固定",
+      "keywords": ["滴胶", "奶油胶", "手机壳", "调色", "装饰"]
+    },
+    {
+      "id": "upcycle",
+      "name": "废旧物改造",
+      "kind": "通用手工",
+      "icon": "改",
+      "accent": "#4f9f68",
+      "description": "纸盒、瓶罐、布料边角的再设计",
+      "keywords": ["改造", "回收", "纸盒", "瓶罐", "环保"]
+    }
+  ],
+  "tutorials": [
+    {
+      "id": "t-paper-fu",
+      "title": "对称福字窗花剪纸零基础教程",
+      "categoryId": "paper-cut",
+      "kind": "传统国风非遗",
+      "difficulty": 2,
+      "likes": 862,
+      "saves": 318,
+      "author": "纸上春风",
+      "duration": "38分钟",
+      "image": "assets/crafts/paper-cut.png",
+      "summary": "从折纸定位、纹样描线到安全下刀，完成一张适合春节窗面的福字窗花。",
+      "materials": ["红色宣纸", "剪刀", "刻刀垫板", "铅笔", "透明胶"],
+      "steps": ["四折定位中心轴", "描出福字与云纹", "先刻内部细节", "最后展开整形压平"],
+      "tags": ["春节", "剪纸", "亲子友好"],
+      "heritageNote": "剪纸常用于节令装饰和民俗祝福，讲究构图饱满与阴阳互补。",
+      "featured": true
+    },
+    {
+      "id": "t-hairpin-peony",
+      "title": "牡丹缠花古风发簪完整制作",
+      "categoryId": "hairpin",
+      "kind": "传统国风非遗",
+      "difficulty": 3,
+      "likes": 735,
+      "saves": 284,
+      "author": "半夏手造",
+      "duration": "55分钟",
+      "image": "assets/crafts/hairpin.png",
+      "summary": "用蚕丝线和铜丝缠出牡丹花瓣，再组合成适合汉服搭配的发簪。",
+      "materials": ["蚕丝线", "0.3mm铜丝", "发簪托", "白乳胶", "尖嘴钳"],
+      "steps": ["绕制花瓣骨架", "均匀缠线定型", "组合花心与花瓣", "固定到发簪托"],
+      "tags": ["缠花", "发簪", "国风配饰"],
+      "heritageNote": "缠花常见于传统首饰制作，重点是线面平整和花瓣层次。",
+      "featured": true
+    },
+    {
+      "id": "t-blue-dye",
+      "title": "古法蓝染方巾扎结与显色",
+      "categoryId": "blue-dye",
+      "kind": "传统国风非遗",
+      "difficulty": 3,
+      "likes": 619,
+      "saves": 227,
+      "author": "青蓝作坊",
+      "duration": "46分钟",
+      "image": "assets/crafts/blue-dye.png",
+      "summary": "用基础螺旋扎法做一条蓝染方巾，观察靛蓝氧化显色过程。",
+      "materials": ["纯棉白布", "靛蓝染液", "橡皮筋", "手套", "晾晒夹"],
+      "steps": ["清洗布料去浆", "旋转扎结固定", "多次浸染氧化", "清水漂洗晾干"],
+      "tags": ["扎染", "蓝染", "布艺"],
+      "heritageNote": "蓝染利用靛蓝还原与氧化显色，图案来自扎结阻染。",
+      "featured": true
+    },
+    {
+      "id": "t-lantern",
+      "title": "中秋古风花灯竹篾骨架制作",
+      "categoryId": "lantern",
+      "kind": "传统国风非遗",
+      "difficulty": 4,
+      "likes": 541,
+      "saves": 199,
+      "author": "灯下有匠",
+      "duration": "70分钟",
+      "image": "assets/crafts/lantern.png",
+      "summary": "搭建轻量竹篾骨架，裱糊宣纸并加入低温LED灯芯。",
+      "materials": ["竹篾", "宣纸", "浆糊", "LED灯芯", "流苏"],
+      "steps": ["弯折竹篾定型", "交叉绑扎骨架", "宣纸裱糊干燥", "安装灯芯与流苏"],
+      "tags": ["中秋", "花灯", "竹编"],
+      "heritageNote": "传统花灯兼具节庆照明与祈福寓意，结构要轻、面纸要透。"
+    },
+    {
+      "id": "t-wood-lamp",
+      "title": "原木小夜灯完整制作教程",
+      "categoryId": "wood",
+      "kind": "通用手工",
+      "difficulty": 3,
+      "likes": 216,
+      "saves": 76,
+      "author": "木屑日记",
+      "duration": "42分钟",
+      "image": "assets/crafts/wood-lamp.png",
+      "summary": "用小木片、柔光灯带和榫槽结构做一个温暖的小夜灯。",
+      "materials": ["椴木片", "砂纸", "木工胶", "LED灯带", "开关线"],
+      "steps": ["裁切木片", "打磨倒角", "粘合外框", "嵌入灯带测试"],
+      "tags": ["木作", "小夜灯", "桌面摆件"],
+      "featured": true
+    },
+    {
+      "id": "t-clay-bunny",
+      "title": "超轻黏土兔子摆件塑形",
+      "categoryId": "clay",
+      "kind": "通用手工",
+      "difficulty": 2,
+      "likes": 458,
+      "saves": 143,
+      "author": "软陶慢慢",
+      "duration": "30分钟",
+      "image": "assets/crafts/clay.png",
+      "summary": "学习球体、耳朵、表情细节的基础塑形，适合新手练习。",
+      "materials": ["超轻黏土", "塑形针", "丙烯笔", "亮油"],
+      "steps": ["揉出主体球形", "压接耳朵与脚", "刻出表情", "阴干后刷亮油"],
+      "tags": ["黏土", "新手", "摆件"]
+    },
+    {
+      "id": "t-resin-case",
+      "title": "奶油胶手机壳DIY步骤",
+      "categoryId": "resin",
+      "kind": "通用手工",
+      "difficulty": 2,
+      "likes": 458,
+      "saves": 164,
+      "author": "胶片花园",
+      "duration": "28分钟",
+      "image": "assets/crafts/resin-case.png",
+      "summary": "从配色、裱花嘴选择到配件粘贴，完成一个奶油胶手机壳。",
+      "materials": ["透明手机壳", "奶油胶", "树脂配件", "镊子", "防尘盒"],
+      "steps": ["规划构图", "挤出边框纹路", "摆放配件", "静置固化24小时"],
+      "tags": ["奶油胶", "手机壳", "礼物"]
+    },
+    {
+      "id": "t-seal",
+      "title": "篆刻新手白文印章练习",
+      "categoryId": "seal",
+      "kind": "传统国风非遗",
+      "difficulty": 4,
+      "likes": 392,
+      "saves": 188,
+      "author": "石上有风",
+      "duration": "63分钟",
+      "image": "assets/crafts/seal.png",
+      "summary": "从印稿反写、上石到冲刀练习，完成第一枚白文闲章。",
+      "materials": ["青田石", "篆刻刀", "印泥", "砂纸", "描图纸"],
+      "steps": ["磨平印面", "反写印稿", "冲刀刻线", "修边钤印"],
+      "tags": ["篆刻", "印章", "传统工具"],
+      "heritageNote": "篆刻强调书法、章法、刀法结合，钤印前需要多次修边。"
+    }
+  ],
+  "festivalTopics": [
+    { "id": "spring", "title": "新春剪纸", "subtitle": "窗花、福字、生肖纹样", "categoryId": "paper-cut" },
+    { "id": "dragonboat", "title": "端午香囊", "subtitle": "艾草、五彩绳、平安结", "categoryId": "embroidery" },
+    { "id": "midautumn", "title": "中秋花灯", "subtitle": "竹篾灯笼与兔子灯", "categoryId": "lantern" },
+    { "id": "double-nine", "title": "重阳纸鸢", "subtitle": "纸骨结构与传统纹样", "categoryId": "paper-cut" }
+  ],
+  "questions": [
+    {
+      "id": "q-blue-dye-start",
+      "title": "新手怎么入门古法蓝染？",
+      "categoryId": "blue-dye",
+      "replies": 2,
+      "status": "已采纳",
+      "detail": "想从方巾开始练习，不确定染液和布料怎么选。"
+    },
+    {
+      "id": "q-clay-shape",
+      "title": "超轻黏土怎么塑形不变形？",
+      "categoryId": "clay",
+      "replies": 5,
+      "status": "热议中",
+      "detail": "做小动物耳朵时总是塌，想找支撑方法。"
+    },
+    {
+      "id": "q-seal-stone",
+      "title": "篆刻新手适合哪种石料？",
+      "categoryId": "seal",
+      "replies": 3,
+      "status": "已采纳",
+      "detail": "青田石、寿山石、冻石到底哪个更好下刀？"
+    }
+  ],
+  "exchanges": [
+    {
+      "id": "e-paper",
+      "title": "宣纸边角换绣线",
+      "material": "半熟宣纸 20 张",
+      "location": "上海 · 杨浦",
+      "image": "assets/crafts/exchange-paper.png",
+      "note": "适合剪纸练习，想换红/金色绣线。"
+    },
+    {
+      "id": "e-indigo",
+      "title": "蓝染棉布余料互换",
+      "material": "靛蓝染布 6 片",
+      "location": "杭州 · 西湖",
+      "image": "assets/crafts/exchange-dye.png",
+      "note": "仅材料互换，不做现金交易。"
+    }
+  ],
+  "challenge": {
+    "id": "weekly-7day",
+    "title": "本周手工打卡活动",
+    "description": "连续7天发布手工/传统国风教程领取匠人徽章",
+    "reward": "匠人徽章 + 首页推荐位",
+    "days": 7
+  },
+  "blockedKeywords": ["美食", "烹饪", "甜品", "游戏", "自拍", "穿搭", "带货", "广告", "影视剪辑", "宠物", "风景"],
+  "allowedKeywords": [
+    "手工",
+    "教程",
+    "材料",
+    "步骤",
+    "剪纸",
+    "窗花",
+    "缠花",
+    "发簪",
+    "篆刻",
+    "扎染",
+    "蓝染",
+    "刺绣",
+    "木作",
+    "黏土",
+    "滴胶",
+    "奶油胶",
+    "花灯",
+    "灯笼",
+    "皮影",
+    "香囊",
+    "编织",
+    "陶艺",
+    "改造"
+  ]
+}
