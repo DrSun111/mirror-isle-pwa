@@ -605,12 +605,33 @@
 
 .device-content {
   min-height: 0;
+  overflow: hidden;
+  scrollbar-width: none;
+  touch-action: pan-y;
+}
+
+.device-content::-webkit-scrollbar {
+  display: none;
+}
+
+.swipe-track {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  transition: transform 260ms ease;
+  will-change: transform;
+}
+
+.swipe-pane {
+  flex: 0 0 100%;
+  min-width: 0;
+  height: 100%;
   overflow-y: auto;
   padding: 0 18px 18px;
   scrollbar-width: none;
 }
 
-.device-content::-webkit-scrollbar {
+.swipe-pane::-webkit-scrollbar {
   display: none;
 }
 

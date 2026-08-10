@@ -74,12 +74,6 @@ const request = async <T>(path: string, options: RequestInit = {}, token?: strin
   return response.json() as Promise<T>
 }
 
-export const sendLoginCode = (email: string) =>
-  request<{ email_masked: string; expires_in_seconds: number; provider: string }>('/auth/send-code', {
-    method: 'POST',
-    body: JSON.stringify({ email }),
-  })
-
 export const loginWithCode = (payload: LoginPayload) =>
   request<{ token: string; user: ApiUser }>('/auth/login', {
     method: 'POST',

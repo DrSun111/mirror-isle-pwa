@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { Dispatch, ReactNode, SetStateAction } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { Dispatch, ReactNode, SetStateAction, TouchEvent } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import {
   Award,
@@ -36,7 +36,6 @@ import {
   loginWithCode,
   saveAssessment,
   sendConversationMessage,
-  sendLoginCode,
   startConversation,
   submitIdentity,
   type ApiRecommendation,
@@ -545,6 +544,7 @@ const navItems: Array<{ key: TabKey; label: string; icon: LucideIcon }> = [
   { key: 'messages', label: '消息', icon: Send },
   { key: 'me', label: '我的', icon: UserRound },
 ]
+const tabOrder: TabKey[] = navItems.map((item) => item.key)
 
 function App() {
   const [screen, setScreen] = useState<Screen>('welcome')
@@ -638,24 +638,9 @@ function App() {
     }
   }
 
-  const requestLoginCode = async () => {
-    if (!isValidEmail(draft.email)) {
-      showToast('请先填写有效邮箱')
-      return
-    }
-    try {
-      await sendLoginCode(draft.email)
-      showToast('验证码已发送到邮箱')
-      setBackendState('online')
-    } catch {
-      setBackendState('offline')
-      showToast('邮箱验证码发送失败，请检查后端邮件配置')
-    }
-  }
-
   const beginAssessment = async () => {
     if (!isValidEmail(draft.email) || !draft.nickname.trim() || !draft.code.trim()) {
-      showToast('请补全邮箱、验证码和昵称')
+      showToast('请补全邮箱、内测码和昵称')
       return
     }
     if (!draft.ageConfirmed || !draft.agreement) {
@@ -684,7 +669,7 @@ function App() {
       setAuthToken(null)
       setApiUser(null)
       setBackendState('offline')
-      showToast('邮箱登录失败，请确认验证码或邮件服务')
+      showToast('内测码验证失败，或后端尚未上线')
       return
     }
     setQuestionIndex(0)
@@ -695,7 +680,7 @@ function App() {
   const finishAssessment = async (nextAnswers: Record<string, string>) => {
     let remoteTraits: Traits | null = null
     if (!authToken) {
-      showToast('请先完成邮箱登录')
+      showToast('请先完成内测登录')
       setScreen('welcome')
       return
     }
@@ -761,7 +746,7 @@ function App() {
 
   const publishTreePost = async (content: string, visibility: PrivacyLevel, tags: string[]) => {
     if (!authToken) {
-      showToast('请先完成邮箱登录')
+      showToast('请先完成内测登录')
       return
     }
     const result = await createTreePost(authToken, content, visibility, tags)
@@ -809,7 +794,7 @@ function App() {
 
   const sendRemoteMessage = async (candidateId: string, content: string) => {
     if (!authToken) {
-      showToast('请先完成邮箱登录')
+      showToast('请先完成内测登录')
       return
     }
     if (isSampleCandidateId(candidateId)) {
@@ -855,7 +840,7 @@ function App() {
         </button>
         <div className="site-actions">
           <span className={backendState === 'online' ? 'backend-badge online' : 'backend-badge'}>
-            {backendState === 'online' ? '多人后端在线' : '等待邮箱登录'}
+            {backendState === 'online' ? '多人后端在线' : '等待内测登录'}
           </span>
           <button className="ghost-button" onClick={installApp}>
             <PackageOpen size={17} />
@@ -874,7 +859,6 @@ function App() {
           <WelcomeScreen
             draft={draft}
             setDraft={setDraft}
-            onSendCode={requestLoginCode}
             onBegin={beginAssessment}
             onInstall={installApp}
           />
@@ -924,13 +908,11 @@ function App() {
 function WelcomeScreen({
   draft,
   setDraft,
-  onSendCode,
   onBegin,
   onInstall,
 }: {
   draft: RegistrationDraft
   setDraft: Dispatch<SetStateAction<RegistrationDraft>>
-  onSendCode: () => Promise<void>
   onBegin: () => void
   onInstall: () => void
 }) {
@@ -980,21 +962,13 @@ function WelcomeScreen({
               />
             </label>
             <label>
-              验证码
-              <div className="inline-field">
-                <input
-                  value={draft.code}
-                  onChange={(event) => setDraft((current) => ({ ...current, code: event.target.value }))}
-                  placeholder="验证码"
-                  inputMode="numeric"
-                />
-                <button
-                  type="button"
-                  onClick={onSendCode}
-                >
-                  发送
-                </button>
-              </div>
+              内测码
+              <input
+                value={draft.code}
+                onChange={(event) => setDraft((current) => ({ ...current, code: event.target.value }))}
+                placeholder="输入内测邀请码"
+                autoComplete="one-time-code"
+              />
             </label>
           </div>
 
@@ -1056,7 +1030,7 @@ function WelcomeScreen({
 
           <button className="primary-button full" onClick={onBegin}>
             <ShieldCheck size={18} />
-            邮箱注册 / 登录
+            邮箱 + 内测码进入
           </button>
         </div>
       </section>
@@ -1190,10 +1164,35 @@ function AppShell({
   onToast: (message: string) => void
 }) {
   const [showGraph, setShowGraph] = useState(false)
+  const swipeStart = useRef<{ x: number; y: number } | null>(null)
+  const activeIndex = Math.max(0, tabOrder.indexOf(activeTab))
 
   useEffect(() => {
     setShowGraph(false)
   }, [activeTab])
+
+  const goToTabOffset = (offset: number) => {
+    const nextIndex = clamp(activeIndex + offset, 0, tabOrder.length - 1)
+    if (nextIndex !== activeIndex) {
+      setActiveTab(tabOrder[nextIndex])
+    }
+  }
+
+  const handleTouchStart = (event: TouchEvent<HTMLDivElement>) => {
+    const touch = event.changedTouches[0]
+    swipeStart.current = { x: touch.clientX, y: touch.clientY }
+  }
+
+  const handleTouchEnd = (event: TouchEvent<HTMLDivElement>) => {
+    const start = swipeStart.current
+    swipeStart.current = null
+    if (!start || showGraph) return
+    const touch = event.changedTouches[0]
+    const deltaX = touch.clientX - start.x
+    const deltaY = touch.clientY - start.y
+    if (Math.abs(deltaX) < 54 || Math.abs(deltaX) < Math.abs(deltaY) * 1.2) return
+    goToTabOffset(deltaX < 0 ? 1 : -1)
+  }
 
   return (
     <main className="product-layout">
@@ -1202,7 +1201,7 @@ function AppShell({
           <CircleCheck size={16} />
           可运行 MVP
         </span>
-        <h2>邮箱登录、心谱、树洞和消息已接入后端</h2>
+        <h2>内测登录、心谱、树洞和消息已接入后端</h2>
         <p>
           当前版本不再使用手机验证码和离线假登录，内测用户登录同一后端后即可发帖、收消息和更新成长记录。
         </p>
@@ -1220,7 +1219,7 @@ function AppShell({
           <AvatarMark label={profile.nickname} />
         </div>
 
-        <div className="device-content">
+        <div className="device-content" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
           {showGraph && (
             <RelationshipGraph
               profile={profile}
@@ -1234,38 +1233,38 @@ function AppShell({
             />
           )}
 
-          {!showGraph && activeTab === 'meet' && (
-            <MeetPage
-              profile={profile}
-              candidates={rankedCandidates}
-              selectedCandidateId={selectedCandidate.id}
-              onSelect={(candidateId) => {
-                setSelectedCandidateId(candidateId)
-                setShowGraph(true)
-              }}
-            />
-          )}
-
-          {!showGraph && activeTab === 'tree' && (
-            <TreePage profile={profile} posts={treePosts} setPosts={setTreePosts} onCreatePost={onCreateTreePost} onToast={onToast} />
-          )}
-
-          {!showGraph && activeTab === 'growth' && (
-            <GrowthPage profile={profile} candidates={rankedCandidates} onToast={onToast} />
-          )}
-
-          {!showGraph && activeTab === 'messages' && (
-            <MessagesPage
-              candidate={selectedCandidate}
-              messages={chatMessages}
-              onSendMessage={onSendMessage}
-              onOpenGraph={() => setShowGraph(true)}
-              onToast={onToast}
-            />
-          )}
-
-          {!showGraph && activeTab === 'me' && (
-            <MePage profile={profile} onInstall={onInstall} onRetake={onRetake} onSubmitIdentity={onSubmitIdentity} onToast={onToast} />
+          {!showGraph && (
+            <div className="swipe-track" style={{ transform: `translateX(-${activeIndex * 100}%)` }}>
+              <section className="swipe-pane" aria-hidden={activeTab !== 'meet'}>
+                <MeetPage
+                  profile={profile}
+                  candidates={rankedCandidates}
+                  selectedCandidateId={selectedCandidate.id}
+                  onSelect={(candidateId) => {
+                    setSelectedCandidateId(candidateId)
+                    setShowGraph(true)
+                  }}
+                />
+              </section>
+              <section className="swipe-pane" aria-hidden={activeTab !== 'tree'}>
+                <TreePage profile={profile} posts={treePosts} setPosts={setTreePosts} onCreatePost={onCreateTreePost} onToast={onToast} />
+              </section>
+              <section className="swipe-pane" aria-hidden={activeTab !== 'growth'}>
+                <GrowthPage profile={profile} candidates={rankedCandidates} onToast={onToast} />
+              </section>
+              <section className="swipe-pane" aria-hidden={activeTab !== 'messages'}>
+                <MessagesPage
+                  candidate={selectedCandidate}
+                  messages={chatMessages}
+                  onSendMessage={onSendMessage}
+                  onOpenGraph={() => setShowGraph(true)}
+                  onToast={onToast}
+                />
+              </section>
+              <section className="swipe-pane" aria-hidden={activeTab !== 'me'}>
+                <MePage profile={profile} onInstall={onInstall} onRetake={onRetake} onSubmitIdentity={onSubmitIdentity} onToast={onToast} />
+              </section>
+            </div>
           )}
         </div>
 
