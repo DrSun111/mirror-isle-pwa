@@ -1,6 +1,14 @@
 .mirror-app {
-  min-height: 100vh;
+  min-height: 100dvh;
   color: #173b61;
+  background:
+    linear-gradient(160deg, rgba(10, 32, 52, 0.98), rgba(23, 59, 97, 0.92) 52%, rgba(247, 243, 236, 0.96)),
+    #173b61;
+  overflow: hidden;
+}
+
+.screen-app {
+  overflow: auto;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(221, 234, 244, 0.38)),
     #f7f3ec;
@@ -1448,6 +1456,218 @@
   }
 }
 
+.entry-screen,
+.setup-screen {
+  display: grid;
+  width: 100%;
+  min-height: 100dvh;
+  place-items: center;
+  padding: 22px;
+}
+
+.entry-panel,
+.setup-panel {
+  position: relative;
+  display: grid;
+  width: min(430px, 100%);
+  min-height: min(780px, calc(100dvh - 44px));
+  overflow: hidden;
+  color: #f7f3ec;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03)),
+    rgba(12, 34, 55, 0.84);
+  border: 1px solid rgba(247, 243, 236, 0.16);
+  border-radius: 28px;
+  box-shadow: 0 28px 80px rgba(5, 18, 31, 0.42);
+  backdrop-filter: blur(22px);
+}
+
+.entry-panel {
+  align-content: space-between;
+  padding: 34px 26px 26px;
+}
+
+.entry-panel::before,
+.setup-panel::before {
+  position: absolute;
+  inset: 18px 18px auto;
+  height: 1px;
+  content: "";
+  background: linear-gradient(90deg, transparent, rgba(247, 243, 236, 0.44), transparent);
+}
+
+.entry-mark {
+  display: flex;
+  justify-content: center;
+}
+
+.entry-mark span {
+  padding: 7px 13px;
+  color: rgba(247, 243, 236, 0.84);
+  border: 1px solid rgba(247, 243, 236, 0.18);
+  border-radius: 999px;
+  font-family: "Noto Serif CJK SC", "Songti SC", SimSun, serif;
+  font-size: 13px;
+  letter-spacing: 0;
+}
+
+.entry-panel h1 {
+  align-self: center;
+  margin: 48px 0 38px;
+  color: #fffaf1;
+  font-family: "Noto Serif CJK SC", "Songti SC", SimSun, serif;
+  font-size: clamp(48px, 14vw, 70px);
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.18;
+  text-align: center;
+  text-shadow: 0 18px 48px rgba(0, 0, 0, 0.24);
+}
+
+.entry-login,
+.setup-form {
+  display: grid;
+  gap: 14px;
+}
+
+.entry-login label,
+.setup-form label,
+.setup-form .field-group {
+  display: grid;
+  gap: 8px;
+  color: rgba(247, 243, 236, 0.76);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.entry-login input,
+.setup-form input {
+  width: 100%;
+  min-height: 50px;
+  padding: 12px 14px;
+  color: #fffaf1;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(247, 243, 236, 0.18);
+  border-radius: 14px;
+}
+
+.entry-login input::placeholder,
+.setup-form input::placeholder {
+  color: rgba(247, 243, 236, 0.42);
+}
+
+.code-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 82px;
+  gap: 8px;
+}
+
+.code-field button {
+  color: #173b61;
+  background: #f7f3ec;
+  border: 0;
+  border-radius: 14px;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.entry-submit,
+.setup-submit {
+  min-height: 52px;
+  margin-top: 6px;
+  color: #173b61;
+  background: #fffaf1;
+  border-color: #fffaf1;
+  border-radius: 16px;
+  box-shadow: 0 18px 34px rgba(0, 0, 0, 0.22);
+}
+
+.setup-panel {
+  align-content: start;
+  gap: 24px;
+  padding: 24px;
+}
+
+.setup-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: rgba(247, 243, 236, 0.66);
+}
+
+.setup-head .icon-button {
+  color: #fffaf1;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(247, 243, 236, 0.16);
+}
+
+.setup-title {
+  display: grid;
+  gap: 8px;
+  margin-top: 22px;
+}
+
+.setup-title small {
+  color: rgba(247, 243, 236, 0.62);
+  font-weight: 800;
+}
+
+.setup-title h1 {
+  margin: 0;
+  color: #fffaf1;
+  font-family: "Noto Serif CJK SC", "Songti SC", SimSun, serif;
+  font-size: 38px;
+  letter-spacing: 0;
+}
+
+.setup-panel .segmented-control {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(247, 243, 236, 0.14);
+}
+
+.setup-panel .segmented-control button {
+  color: rgba(247, 243, 236, 0.72);
+}
+
+.setup-panel .segmented-control button.active {
+  color: #173b61;
+  background: #fffaf1;
+}
+
+.setup-panel .check-line {
+  color: rgba(247, 243, 236, 0.68);
+}
+
+@media (max-width: 720px) {
+  .entry-screen,
+  .setup-screen,
+  .assessment-layout {
+    min-height: 100dvh;
+    padding: 0;
+  }
+
+  .entry-panel,
+  .setup-panel,
+  .assessment-panel,
+  .app-panel {
+    width: 100%;
+    min-height: 100dvh;
+    max-height: 100dvh;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .product-layout {
+    width: 100%;
+    min-height: 100dvh;
+    padding: 0;
+  }
+
+  .product-brief {
+    display: none;
+  }
+}
+
 @media (max-width: 620px) {
   .site-bar {
     padding: 12px;
@@ -1521,5 +1741,25 @@
 
   .candidate-title strong {
     white-space: normal;
+  }
+}
+
+@media (max-width: 720px) {
+  .entry-panel,
+  .setup-panel,
+  .assessment-panel,
+  .app-panel {
+    width: 100%;
+    min-height: 100dvh;
+    max-height: 100dvh;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .welcome-layout,
+  .assessment-layout,
+  .product-layout {
+    width: 100%;
+    padding: 0;
   }
 }

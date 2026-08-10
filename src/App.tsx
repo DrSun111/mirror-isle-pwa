@@ -17,7 +17,6 @@ import {
   MessageCircle,
   Moon,
   NotebookTabs,
-  PackageOpen,
   PenLine,
   Plus,
   Send,
@@ -33,22 +32,19 @@ import {
   fetchConversationMessages,
   fetchRecommendations,
   fetchTreePosts,
-  loginWithCode,
   saveAssessment,
   sendConversationMessage,
+  sendLoginCode,
   startConversation,
   submitIdentity,
+  updateMe,
+  verifyEmailCode,
   type ApiRecommendation,
   type ApiTreePost,
   type ApiUser,
 } from './api'
 
-type BeforeInstallPrompt = Event & {
-  prompt: () => Promise<void>
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
-}
-
-type Screen = 'welcome' | 'assessment' | 'app'
+type Screen = 'welcome' | 'profile' | 'assessment' | 'app'
 type TabKey = 'meet' | 'tree' | 'growth' | 'messages' | 'me'
 type RelationGoal = '亲密关系' | '深度朋友' | '成长伙伴'
 type PrivacyLevel = 'private' | 'friends' | 'public'
@@ -559,9 +555,8 @@ function App() {
   const [questionIndex, setQuestionIndex] = useStoredState('mirror-isle:question-index', 0)
   const [remoteCandidates, setRemoteCandidates] = useState<Array<Candidate & { liveScore: number }> | null>(null)
   const [conversationIds, setConversationIds] = useStoredState<Record<string, string>>('mirror-isle:conversation-ids', {})
-  const [backendState, setBackendState] = useState<'online' | 'offline'>(authToken ? 'online' : 'offline')
+  const [, setBackendState] = useState<'online' | 'offline'>(authToken ? 'online' : 'offline')
   const [apiUser, setApiUser] = useState<ApiUser | null>(null)
-  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPrompt | null>(null)
   const [toast, setToast] = useState('')
 
   useEffect(() => {
@@ -570,21 +565,12 @@ function App() {
       setScreen('welcome')
       return
     }
-    setScreen(profile ? 'app' : 'welcome')
+    if (profile) setScreen('app')
   }, [authToken, profile, setProfile])
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'auto' })
   }, [screen])
-
-  useEffect(() => {
-    const handleBeforeInstall = (event: Event) => {
-      event.preventDefault()
-      setInstallPrompt(event as BeforeInstallPrompt)
-    }
-    window.addEventListener('beforeinstallprompt', handleBeforeInstall)
-    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall)
-  }, [])
 
   useEffect(() => {
     if (!toast) return
@@ -607,19 +593,6 @@ function App() {
 
   const showToast = useCallback((message: string) => setToast(message), [])
 
-  const installApp = async () => {
-    if (installPrompt) {
-      await installPrompt.prompt()
-      const choice = await installPrompt.userChoice
-      if (choice.outcome === 'accepted') {
-        setInstallPrompt(null)
-        showToast('镜屿正在安装到你的设备')
-      }
-      return
-    }
-    showToast('可在浏览器菜单中选择“安装应用”或“添加到主屏幕”')
-  }
-
   const syncBackendData = async (token: string) => {
     try {
       const [recommendationResult, treeResult] = await Promise.all([
@@ -638,9 +611,55 @@ function App() {
     }
   }
 
-  const beginAssessment = async () => {
-    if (!isValidEmail(draft.email) || !draft.nickname.trim() || !draft.code.trim()) {
-      showToast('请补全邮箱、内测码和昵称')
+  const requestLoginCode = async () => {
+    if (!isValidEmail(draft.email)) {
+      showToast('请先填写有效邮箱')
+      return
+    }
+    try {
+      await sendLoginCode(draft.email)
+      setBackendState('online')
+      showToast('邮箱码已发送')
+    } catch {
+      setBackendState('offline')
+      showToast('邮箱码发送失败，需要公网后端邮件服务')
+    }
+  }
+
+  const verifyEmailAndContinue = async () => {
+    if (!isValidEmail(draft.email) || !draft.code.trim()) {
+      showToast('请填写邮箱和邮箱码')
+      return
+    }
+    try {
+      const login = await verifyEmailCode(draft.email, draft.code.trim())
+      setAuthToken(login.token)
+      setApiUser(login.user)
+      setBackendState('online')
+      setDraft((current) => ({
+        ...current,
+        nickname: current.nickname || login.user.nickname,
+        city: current.city || login.user.city,
+        goal: login.user.goal as RelationGoal,
+        privacy: login.user.privacy as PrivacyLevel,
+      }))
+      setScreen('profile')
+    } catch {
+      setAuthToken(null)
+      setApiUser(null)
+      setBackendState('offline')
+      showToast('邮箱码验证失败')
+    }
+  }
+
+  const completeProfileSetup = async () => {
+    if (!authToken) {
+      showToast('请先完成邮箱登录')
+      setScreen('welcome')
+      return
+    }
+    if (!draft.nickname.trim() || !draft.city.trim()) {
+      showToast('请填写昵称和城市')
       return
     }
     if (!draft.ageConfirmed || !draft.agreement) {
@@ -648,28 +667,18 @@ function App() {
       return
     }
     try {
-      const login = await loginWithCode({
-        email: draft.email,
-        code: draft.code,
+      const result = await updateMe(authToken, {
         nickname: draft.nickname.trim(),
-        city: draft.city.trim() || '上海',
+        city: draft.city.trim(),
         goal: draft.goal,
         privacy: draft.privacy,
-        age_confirmed: draft.ageConfirmed,
+        age_confirmed: true,
       })
-      setAuthToken(login.token)
-      setApiUser(login.user)
+      setApiUser(result.user)
       setBackendState('online')
-      setProfile((current) =>
-        current
-          ? { ...current, id: login.user.id, identityStatus: login.user.identity_status }
-          : current,
-      )
     } catch {
-      setAuthToken(null)
-      setApiUser(null)
       setBackendState('offline')
-      showToast('内测码验证失败，或后端尚未上线')
+      showToast('个人信息保存失败')
       return
     }
     setQuestionIndex(0)
@@ -829,39 +838,23 @@ function App() {
   }
 
   return (
-    <div className="mirror-app">
-      <header className="site-bar">
-        <button className="brand" onClick={() => setScreen(profile ? 'app' : 'welcome')} aria-label="回到镜屿首页">
-          <span className="brand-mark">屿</span>
-          <span>
-            <strong>镜屿</strong>
-            <small>心理成长型深度关系产品</small>
-          </span>
-        </button>
-        <div className="site-actions">
-          <span className={backendState === 'online' ? 'backend-badge online' : 'backend-badge'}>
-            {backendState === 'online' ? '多人后端在线' : '等待内测登录'}
-          </span>
-          <button className="ghost-button" onClick={installApp}>
-            <PackageOpen size={17} />
-            下载 / 安装
-          </button>
-          {profile && (
-            <button className="ghost-button" onClick={resetDemo}>
-              <RefreshText />
-              重置体验
-            </button>
-          )}
-        </div>
-      </header>
-
+    <div className={`mirror-app screen-${screen}`}>
       {screen === 'welcome' && (
           <WelcomeScreen
             draft={draft}
             setDraft={setDraft}
-            onBegin={beginAssessment}
-            onInstall={installApp}
+            onSendCode={requestLoginCode}
+            onVerify={verifyEmailAndContinue}
           />
+      )}
+
+      {screen === 'profile' && (
+        <ProfileSetupScreen
+          draft={draft}
+          setDraft={setDraft}
+          onBack={() => setScreen('welcome')}
+          onContinue={completeProfileSetup}
+        />
       )}
 
       {screen === 'assessment' && (
@@ -872,7 +865,7 @@ function App() {
           setAnswers={setAnswers}
           setQuestionIndex={setQuestionIndex}
           onFinish={finishAssessment}
-          onBack={() => setScreen(profile ? 'app' : 'welcome')}
+          onBack={() => setScreen(profile ? 'app' : 'profile')}
         />
       )}
 
@@ -890,7 +883,7 @@ function App() {
           onCreateTreePost={publishTreePost}
           onSendMessage={sendRemoteMessage}
           onSubmitIdentity={submitRealIdentity}
-          onInstall={installApp}
+          onReset={resetDemo}
           onRetake={() => {
             setQuestionIndex(0)
             setAnswers({})
@@ -908,88 +901,100 @@ function App() {
 function WelcomeScreen({
   draft,
   setDraft,
-  onBegin,
-  onInstall,
+  onSendCode,
+  onVerify,
 }: {
   draft: RegistrationDraft
   setDraft: Dispatch<SetStateAction<RegistrationDraft>>
-  onBegin: () => void
-  onInstall: () => void
+  onSendCode: () => Promise<void>
+  onVerify: () => Promise<void>
 }) {
   return (
-    <main className="welcome-layout">
-      <section className="welcome-copy">
-        <span className="eyebrow">
-          <Sparkles size={16} />
-          MIRROR ISLE · 镜屿
-        </span>
-        <h1>找到真正理解你的人</h1>
-        <p>先认识自己，再遇见真正合适的人。镜屿用心谱、每日有限推荐和关系图谱，帮助你减少无效认识。</p>
-
-        <div className="promise-grid">
-          <FeaturePill icon={UserRound} title="认识自己" text="初见心谱形成五层画像" />
-          <FeaturePill icon={Users} title="遇见同频" text="每天 3 位可解释推荐" />
-          <FeaturePill icon={Leaf} title="共同成长" text="内容与关系形成闭环" />
+    <main className="entry-screen">
+      <section className="entry-panel" aria-label="镜屿邮箱登录">
+        <div className="entry-mark">
+          <span>镜屿</span>
         </div>
+        <h1>世界上<br />另一个自己</h1>
 
-        <div className="download-strip">
-          <div>
-            <strong>已支持下载式使用</strong>
-            <span>通过 PWA 安装到手机主屏或桌面，连接同一内测后端后即可多人使用。</span>
-          </div>
-          <button className="secondary-button" onClick={onInstall}>
-            <PackageOpen size={17} />
-            安装镜屿
-          </button>
-        </div>
-      </section>
-
-      <section className="auth-card" aria-label="镜屿注册">
-        <div className="auth-art">
-          <img src={assetUrl('assets/mirror/welcome.png')} alt="镜屿欢迎页预览" />
-        </div>
-        <div className="auth-form">
-          <h2>注册 / 登录</h2>
-          <div className="form-row two">
-            <label>
-              邮箱
-              <input
-                value={draft.email ?? ''}
-                onChange={(event) => setDraft((current) => ({ ...current, email: event.target.value }))}
-                placeholder="you@example.com"
-                type="email"
-                autoComplete="email"
-              />
-            </label>
-            <label>
-              内测码
+        <div className="entry-login">
+          <label>
+            <span>邮箱</span>
+            <input
+              value={draft.email ?? ''}
+              onChange={(event) => setDraft((current) => ({ ...current, email: event.target.value }))}
+              placeholder="you@example.com"
+              type="email"
+              autoComplete="email"
+            />
+          </label>
+          <label>
+            <span>邮箱码</span>
+            <div className="code-field">
               <input
                 value={draft.code}
                 onChange={(event) => setDraft((current) => ({ ...current, code: event.target.value }))}
-                placeholder="输入内测邀请码"
+                placeholder="6 位验证码"
+                inputMode="numeric"
                 autoComplete="one-time-code"
               />
-            </label>
-          </div>
+              <button type="button" onClick={onSendCode}>
+                获取
+              </button>
+            </div>
+          </label>
+          <button className="primary-button full entry-submit" onClick={onVerify}>
+            进入镜屿
+          </button>
+        </div>
+      </section>
+    </main>
+  )
+}
 
-          <div className="form-row two">
-            <label>
-              前台昵称
-              <input
-                value={draft.nickname}
-                onChange={(event) => setDraft((current) => ({ ...current, nickname: event.target.value }))}
-                placeholder="例如：山海"
-              />
-            </label>
-            <label>
-              城市
-              <input
-                value={draft.city}
-                onChange={(event) => setDraft((current) => ({ ...current, city: event.target.value }))}
-                placeholder="上海"
-              />
-            </label>
-          </div>
+function ProfileSetupScreen({
+  draft,
+  setDraft,
+  onBack,
+  onContinue,
+}: {
+  draft: RegistrationDraft
+  setDraft: Dispatch<SetStateAction<RegistrationDraft>>
+  onBack: () => void
+  onContinue: () => Promise<void>
+}) {
+  return (
+    <main className="setup-screen">
+      <section className="setup-panel" aria-label="个人信息设定">
+        <header className="setup-head">
+          <button className="icon-button" onClick={onBack} aria-label="返回邮箱登录">
+            <ChevronRight className="back-icon" size={20} />
+          </button>
+          <span>01 / 02</span>
+        </header>
+
+        <div className="setup-title">
+          <small>建立你的岛屿坐标</small>
+          <h1>先让镜屿认识你</h1>
+        </div>
+
+        <div className="setup-form">
+          <label>
+            <span>昵称</span>
+            <input
+              value={draft.nickname}
+              onChange={(event) => setDraft((current) => ({ ...current, nickname: event.target.value }))}
+              placeholder="例如：山海"
+            />
+          </label>
+          <label>
+            <span>城市</span>
+            <input
+              value={draft.city}
+              onChange={(event) => setDraft((current) => ({ ...current, city: event.target.value }))}
+              placeholder="上海"
+            />
+          </label>
 
           <FieldGroup label="当前关系目的">
             <SegmentedControl
@@ -1027,12 +1032,11 @@ function WelcomeScreen({
             />
             已阅读并同意《用户协议》《隐私政策》
           </label>
-
-          <button className="primary-button full" onClick={onBegin}>
-            <ShieldCheck size={18} />
-            邮箱 + 内测码进入
-          </button>
         </div>
+
+        <button className="primary-button full setup-submit" onClick={onContinue}>
+          开始心理测评
+        </button>
       </section>
     </main>
   )
@@ -1143,7 +1147,7 @@ function AppShell({
   onCreateTreePost,
   onSendMessage,
   onSubmitIdentity,
-  onInstall,
+  onReset,
   onRetake,
   onToast,
 }: {
@@ -1159,7 +1163,7 @@ function AppShell({
   onCreateTreePost: (content: string, visibility: PrivacyLevel, tags: string[]) => Promise<void>
   onSendMessage: (candidateId: string, content: string) => Promise<void>
   onSubmitIdentity: (realName: string, idNumber: string) => Promise<void>
-  onInstall: () => void
+  onReset: () => void
   onRetake: () => void
   onToast: (message: string) => void
 }) {
@@ -1262,7 +1266,7 @@ function AppShell({
                 />
               </section>
               <section className="swipe-pane" aria-hidden={activeTab !== 'me'}>
-                <MePage profile={profile} onInstall={onInstall} onRetake={onRetake} onSubmitIdentity={onSubmitIdentity} onToast={onToast} />
+                <MePage profile={profile} onReset={onReset} onRetake={onRetake} onSubmitIdentity={onSubmitIdentity} onToast={onToast} />
               </section>
             </div>
           )}
@@ -1656,13 +1660,13 @@ function MessagesPage({
 
 function MePage({
   profile,
-  onInstall,
+  onReset,
   onRetake,
   onSubmitIdentity,
   onToast,
 }: {
   profile: Profile
-  onInstall: () => void
+  onReset: () => void
   onRetake: () => void
   onSubmitIdentity: (realName: string, idNumber: string) => Promise<void>
   onToast: (message: string) => void
@@ -1716,8 +1720,8 @@ function MePage({
 
       <section className="menu-card">
         <MenuButton icon={ShieldCheck} title="隐私与安全" text="管理你的数据与隐私设置" onClick={() => onToast('隐私设置已打开')} />
-        <MenuButton icon={PackageOpen} title="下载 / 安装镜屿" text="添加到手机主屏或桌面" onClick={onInstall} />
         <MenuButton icon={NotebookTabs} title="重新完成心谱" text="更新你的画像与推荐权重" onClick={onRetake} />
+        <MenuButton icon={CircleAlert} title="退出并重新登录" text="清除本机登录状态" onClick={onReset} />
       </section>
     </div>
   )
@@ -1832,16 +1836,6 @@ function SectionTitle({ title, icon: Icon, action }: { title: string; icon: Luci
   )
 }
 
-function FeaturePill({ icon: Icon, title, text }: { icon: LucideIcon; title: string; text: string }) {
-  return (
-    <article className="feature-pill">
-      <Icon size={24} />
-      <strong>{title}</strong>
-      <span>{text}</span>
-    </article>
-  )
-}
-
 function FieldGroup({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="field-group">
@@ -1909,10 +1903,6 @@ function MenuButton({
       <ChevronRight size={18} />
     </button>
   )
-}
-
-function RefreshText() {
-  return <span className="refresh-symbol">↻</span>
 }
 
 function scoreCandidate(traits: Traits, candidate: Candidate) {

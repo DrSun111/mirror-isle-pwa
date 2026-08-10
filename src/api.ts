@@ -10,6 +10,14 @@ export interface LoginPayload {
   age_confirmed: boolean
 }
 
+export interface ProfileUpdatePayload {
+  nickname: string
+  city: string
+  goal: string
+  privacy: string
+  age_confirmed: boolean
+}
+
 export interface ApiUser {
   id: string
   email_masked: string
@@ -74,11 +82,33 @@ const request = async <T>(path: string, options: RequestInit = {}, token?: strin
   return response.json() as Promise<T>
 }
 
+export const sendLoginCode = (email: string) =>
+  request<{ email_masked: string; expires_in_seconds: number; provider: string }>('/auth/send-code', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  })
+
+export const verifyEmailCode = (email: string, code: string) =>
+  request<{ token: string; user: ApiUser }>('/auth/verify-code', {
+    method: 'POST',
+    body: JSON.stringify({ email, code }),
+  })
+
 export const loginWithCode = (payload: LoginPayload) =>
   request<{ token: string; user: ApiUser }>('/auth/login', {
     method: 'POST',
     body: JSON.stringify(payload),
   })
+
+export const updateMe = (token: string, payload: ProfileUpdatePayload) =>
+  request<{ user: ApiUser }>(
+    '/me',
+    {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    },
+    token,
+  )
 
 export const saveAssessment = (token: string, answers: Record<string, string>) =>
   request<{ traits: Record<string, number>; confidence: number; anchors: string[] }>(
