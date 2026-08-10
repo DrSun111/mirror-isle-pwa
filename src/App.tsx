@@ -622,7 +622,7 @@ function App() {
       showToast('邮箱码已发送')
     } catch {
       setBackendState('offline')
-      showToast('邮箱码发送失败，需要公网后端邮件服务')
+      showToast('邮箱码发送失败，请检查网络或稍后重试')
     }
   }
 
@@ -915,7 +915,12 @@ function WelcomeScreen({
         <div className="entry-mark">
           <span>镜屿</span>
         </div>
-        <h1>世界上<br />另一个自己</h1>
+        <div className="entry-lines" aria-hidden="true">
+          <i />
+          <i />
+          <i />
+        </div>
+        <h1>寻找世界上<br />另一个自己</h1>
 
         <div className="entry-login">
           <label>
