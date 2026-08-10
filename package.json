@@ -15,6 +15,7 @@
     "@capacitor/android": "^8.5.0",
     "@capacitor/cli": "^8.5.0",
     "@capacitor/core": "^8.5.0",
+    "@supabase/supabase-js": "^2.112.2",
     "@tweenjs/tween.js": "^25.0.0",
     "echarts": "^6.1.0",
     "echarts-for-react": "^3.0.6",
