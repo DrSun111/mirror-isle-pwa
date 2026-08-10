@@ -432,6 +432,12 @@
   cursor: pointer;
 }
 
+.icon-button.active {
+  color: #c59c5b;
+  background: rgba(255, 248, 234, 0.92);
+  border-color: rgba(197, 156, 91, 0.35);
+}
+
 .back-icon {
   transform: rotate(180deg);
 }
@@ -726,9 +732,13 @@
   font-size: 21px;
 }
 
-.section-title > span {
+.section-title > span,
+.section-title > button {
   color: #7d8fa2;
+  background: transparent;
+  border: 0;
   font-size: 13px;
+  cursor: pointer;
 }
 
 .candidate-list {
@@ -1126,6 +1136,7 @@
   border: 1px solid rgba(23, 59, 97, 0.08);
   border-radius: 18px;
   box-shadow: 0 14px 30px rgba(23, 59, 97, 0.07);
+  cursor: pointer;
 }
 
 .reading-card.tone-1 {
@@ -1192,10 +1203,12 @@
   justify-items: center;
   gap: 8px;
   padding: 14px;
+  color: #173b61;
   text-align: center;
   background: rgba(255, 255, 255, 0.78);
   border: 1px solid rgba(23, 59, 97, 0.09);
   border-radius: 18px;
+  cursor: pointer;
 }
 
 .fellow-card span {
@@ -1299,6 +1312,183 @@
 .chat-input button:disabled {
   cursor: not-allowed;
   opacity: 0.48;
+}
+
+.subpage-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.subpage-head strong,
+.subpage-head small {
+  display: block;
+}
+
+.subpage-head strong {
+  color: #173b61;
+  font-family: "Noto Serif CJK SC", "Songti SC", SimSun, serif;
+  font-size: 22px;
+}
+
+.subpage-head small {
+  margin-top: 2px;
+  color: #73879c;
+  font-size: 12px;
+}
+
+.detail-card,
+.settings-card {
+  padding: 16px;
+  color: #173b61;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(23, 59, 97, 0.09);
+  border-radius: 18px;
+  box-shadow: 0 14px 30px rgba(23, 59, 97, 0.07);
+}
+
+.detail-card h2 {
+  margin: 8px 0;
+  font-family: "Noto Serif CJK SC", "Songti SC", SimSun, serif;
+  font-size: 22px;
+}
+
+.detail-card p {
+  margin: 0;
+  color: #5f7185;
+  line-height: 1.6;
+}
+
+.detail-list {
+  display: grid;
+  gap: 10px;
+}
+
+.detail-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  width: 100%;
+  padding: 14px;
+  color: #173b61;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(23, 59, 97, 0.09);
+  border-radius: 18px;
+}
+
+.detail-item.active {
+  border-color: rgba(109, 154, 135, 0.4);
+  background: rgba(220, 233, 221, 0.58);
+}
+
+.detail-item strong,
+.detail-item small {
+  display: block;
+}
+
+.detail-item small {
+  margin-top: 2px;
+  color: #74879b;
+  font-size: 12px;
+}
+
+.detail-item p {
+  margin: 8px 0 0;
+  color: #5f7185;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+button.detail-item {
+  cursor: pointer;
+}
+
+.inline-compose {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.inline-compose textarea {
+  min-height: 92px;
+  resize: vertical;
+}
+
+.mini-feed {
+  display: grid;
+  gap: 8px;
+}
+
+.mini-feed p {
+  margin: 0;
+  padding: 12px;
+  color: #294c70;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(23, 59, 97, 0.08);
+  border-radius: 14px;
+  line-height: 1.55;
+}
+
+.settings-card {
+  display: grid;
+  gap: 8px;
+  padding: 8px;
+}
+
+.toggle-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  padding: 12px;
+  color: #173b61;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 14px;
+  cursor: pointer;
+}
+
+.toggle-row strong,
+.toggle-row small {
+  display: block;
+}
+
+.toggle-row small {
+  margin-top: 4px;
+  color: #74879b;
+}
+
+.toggle-row i {
+  position: relative;
+  width: 42px;
+  height: 24px;
+  background: rgba(23, 59, 97, 0.16);
+  border-radius: 999px;
+  transition: background 180ms ease;
+}
+
+.toggle-row i::after {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  content: "";
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 4px 10px rgba(23, 59, 97, 0.18);
+  transition: transform 180ms ease;
+}
+
+.toggle-row.active i {
+  background: #6d9a87;
+}
+
+.toggle-row.active i::after {
+  transform: translateX(18px);
 }
 
 .profile-hero {
@@ -1892,5 +2082,466 @@
   .product-layout {
     width: 100%;
     padding: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .assessment-panel,
+  .app-panel {
+    width: 100%;
+    min-height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+  }
+
+  .screen-head {
+    gap: 8px;
+    padding: 14px 16px 8px;
+  }
+
+  .screen-head strong {
+    font-size: 20px;
+  }
+
+  .screen-head small {
+    font-size: 11px;
+  }
+
+  .icon-button,
+  .avatar-mark {
+    width: 34px;
+    height: 34px;
+    font-size: 14px;
+  }
+
+  .avatar-mark.large {
+    width: 58px;
+    height: 58px;
+    font-size: 21px;
+  }
+
+  .assessment-title {
+    padding: 0 16px 10px;
+  }
+
+  .assessment-title h1 {
+    margin-top: 6px;
+    font-size: 30px;
+    line-height: 1.08;
+  }
+
+  .assessment-title h1 span {
+    font-size: 16px;
+  }
+
+  .assessment-title p {
+    margin-top: 5px;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .question-card {
+    margin: 0 12px;
+    padding: 12px;
+    border-radius: 18px;
+  }
+
+  .question-card h2 {
+    margin: 6px 0 10px;
+    font-size: 17px;
+    line-height: 1.35;
+  }
+
+  .question-construct {
+    font-size: 11px;
+  }
+
+  .question-card .option-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .option-card {
+    min-height: 102px;
+    padding: 10px;
+    border-radius: 15px;
+  }
+
+  .option-card svg {
+    width: 19px;
+    height: 19px;
+  }
+
+  .option-card strong {
+    margin-top: 9px;
+    font-size: 14px;
+    line-height: 1.25;
+  }
+
+  .option-card span {
+    font-size: 11px;
+    line-height: 1.3;
+  }
+
+  .assessment-actions {
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .progress-note {
+    margin: 0 12px 10px;
+    padding: 8px 10px;
+    font-size: 12px;
+    border-radius: 13px;
+  }
+
+  .primary-button,
+  .secondary-button,
+  .ghost-button {
+    min-height: 38px;
+    padding: 0 12px;
+    border-radius: 13px;
+    font-size: 13px;
+  }
+
+  .swipe-pane {
+    padding: 0 12px 12px;
+  }
+
+  .page-stack,
+  .graph-page {
+    gap: 10px;
+  }
+
+  .hero-card.compact,
+  .growth-hero,
+  .life-question,
+  .trust-note,
+  .spectrum-card,
+  .tree-post,
+  .first-meet,
+  .opener-card,
+  .radar-card,
+  .menu-card,
+  .identity-card,
+  .detail-card {
+    border-radius: 16px;
+  }
+
+  .hero-card.compact,
+  .growth-hero,
+  .life-question,
+  .spectrum-card,
+  .tree-post,
+  .identity-card {
+    padding: 12px;
+  }
+
+  .hero-card h1,
+  .growth-hero h1 {
+    margin-top: 5px;
+    font-size: 18px;
+    line-height: 1.25;
+  }
+
+  .eyebrow,
+  .growth-hero span {
+    font-size: 11px;
+  }
+
+  .intent-row,
+  .tag-row,
+  .anchor-row,
+  .reaction-row,
+  .radar-legend {
+    gap: 6px;
+  }
+
+  .intent-row span,
+  .tag-row span,
+  .anchor-row span {
+    padding: 5px 8px;
+    font-size: 10.5px;
+  }
+
+  .section-title h2 {
+    font-size: 16px;
+  }
+
+  .section-title > span,
+  .section-title > button {
+    font-size: 11px;
+  }
+
+  .candidate-list {
+    gap: 9px;
+  }
+
+  .candidate-card {
+    gap: 9px;
+    padding: 10px;
+    border-radius: 16px;
+  }
+
+  .candidate-title {
+    align-items: center;
+  }
+
+  .candidate-title strong {
+    font-size: 14px;
+    white-space: normal;
+  }
+
+  .candidate-title span {
+    font-size: 20px;
+  }
+
+  .candidate-main p {
+    margin: 6px 0;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .candidate-main small,
+  .life-question span,
+  .opener-card span,
+  .first-meet span {
+    font-size: 11px;
+  }
+
+  .life-question h2 {
+    margin: 6px 0;
+    font-size: 17px;
+    line-height: 1.35;
+  }
+
+  .life-question p,
+  .profile-hero span {
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .spectrum-bars {
+    gap: 10px;
+  }
+
+  .spectrum-row {
+    grid-template-columns: 34px minmax(0, 1fr) 34px;
+    gap: 7px;
+    font-size: 11px;
+  }
+
+  .pair-row,
+  .fellow-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .radar-card {
+    padding: 6px 10px 10px;
+  }
+
+  .insight-card,
+  .opener-card,
+  .first-meet,
+  .detail-item {
+    padding: 11px;
+    border-radius: 15px;
+  }
+
+  .insight-card ul,
+  .detail-item p,
+  .tree-post p {
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .tree-input {
+    min-height: 74px;
+  }
+
+  .tree-post p {
+    margin: 9px 0;
+  }
+
+  .reaction-row button {
+    min-height: 30px;
+    padding: 0 8px;
+    font-size: 11px;
+  }
+
+  .progress-line {
+    height: 5px;
+    margin: 12px 0 10px;
+  }
+
+  .reading-row {
+    grid-template-columns: repeat(3, 116px);
+    gap: 8px;
+  }
+
+  .reading-card {
+    min-height: 118px;
+    padding: 10px;
+    border-radius: 15px;
+  }
+
+  .reading-card strong,
+  .practice-card strong,
+  .detail-item strong,
+  .menu-button strong {
+    font-size: 13px;
+  }
+
+  .reading-card span,
+  .practice-card span,
+  .practice-card small,
+  .discussion-card small,
+  .menu-button small,
+  .detail-item small {
+    font-size: 11px;
+  }
+
+  .practice-card,
+  .discussion-card {
+    gap: 9px;
+    padding: 11px;
+    border-radius: 15px;
+  }
+
+  .discussion-card {
+    grid-template-columns: 1fr;
+  }
+
+  .fellow-card {
+    gap: 6px;
+    padding: 10px;
+    border-radius: 15px;
+  }
+
+  .chat-page {
+    gap: 9px;
+  }
+
+  .chat-head {
+    gap: 8px;
+  }
+
+  .chat-head strong {
+    font-size: 14px;
+  }
+
+  .chat-head small {
+    font-size: 11px;
+  }
+
+  .message-list {
+    gap: 8px;
+    min-height: 190px;
+  }
+
+  .empty-state,
+  .message {
+    padding: 10px 11px;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .chat-input {
+    grid-template-columns: minmax(0, 1fr) 36px;
+    padding: 6px;
+    border-radius: 18px;
+  }
+
+  .chat-input input {
+    min-height: 34px;
+    font-size: 13px;
+  }
+
+  .chat-input button {
+    width: 34px;
+    height: 34px;
+  }
+
+  .profile-hero {
+    gap: 10px;
+    padding: 2px 0;
+  }
+
+  .profile-hero h1 {
+    font-size: 19px;
+  }
+
+  .profile-hero p {
+    font-size: 12px;
+  }
+
+  .identity-card input {
+    min-height: 38px;
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+
+  .menu-button {
+    gap: 9px;
+    padding: 12px;
+  }
+
+  .subpage-head strong {
+    font-size: 18px;
+  }
+
+  .detail-card h2 {
+    font-size: 17px;
+    line-height: 1.35;
+  }
+
+  .detail-card p {
+    font-size: 12px;
+  }
+
+  .inline-compose textarea {
+    min-height: 76px;
+    font-size: 13px;
+  }
+
+  .toggle-row {
+    padding: 10px;
+  }
+
+  .bottom-tabs {
+    padding: 7px 8px 9px;
+  }
+
+  .bottom-tabs button {
+    gap: 2px;
+  }
+
+  .bottom-tabs svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .bottom-tabs span {
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 370px) {
+  .assessment-title h1 {
+    font-size: 27px;
+  }
+
+  .option-card {
+    min-height: 94px;
+    padding: 8px;
+  }
+
+  .option-card strong {
+    font-size: 13px;
+  }
+
+  .reading-row {
+    grid-template-columns: repeat(3, 108px);
   }
 }

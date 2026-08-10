@@ -50,6 +50,8 @@ import {
 type Screen = 'welcome' | 'profile' | 'assessment' | 'app'
 type AuthMode = 'login' | 'register'
 type TabKey = 'meet' | 'tree' | 'growth' | 'messages' | 'me'
+type GrowthPanel = 'home' | 'path' | 'reading' | 'practice' | 'discussion' | 'fellows'
+type MePanel = 'home' | 'saved' | 'privacy'
 type RelationGoal = '亲密关系' | '深度朋友' | '成长伙伴'
 type PrivacyLevel = 'private' | 'friends' | 'public'
 type DimensionKey = 'values' | 'lifestyle' | 'relationship' | 'communication' | 'growth' | 'boundary'
@@ -554,6 +556,18 @@ const navItems: Array<{ key: TabKey; label: string; icon: LucideIcon }> = [
 const tabOrder: TabKey[] = navItems.map((item) => item.key)
 const avatarOptions = ['澄', '岛', '月', '星', '林', '海']
 
+const readingItems = [
+  { title: '被讨厌的勇气', meta: '关系里的自我课', brief: '把别人的评价还给别人，把自己的选择拿回来。' },
+  { title: '边界：通往个人自由', meta: '8 分钟阅读', brief: '练习说清楚需求，也允许别人拥有不同节奏。' },
+  { title: '也许你该找个人聊聊', meta: '心理成长', brief: '看见防御背后的柔软，让表达慢慢变得真实。' },
+]
+
+const practiceItems = [
+  { id: 'boundary-signal', title: '识别你的边界信号', detail: '记录一次让你不舒服的关系瞬间，写下身体感受和真正需求。', duration: '约 8 分钟' },
+  { id: 'honest-message', title: '写一条真实表达', detail: '用“我感到 / 我需要 / 我希望”的句式，准备一次不攻击的沟通。', duration: '约 6 分钟' },
+  { id: 'quiet-review', title: '关系复盘三问', detail: '今天我在哪一刻靠近了自己？哪一刻又忽略了自己？下一次想怎样做？', duration: '约 10 分钟' },
+]
+
 function formatEmailAuthError(message: string, fallback: string) {
   const waitSeconds = message.match(/after\s+(\d+)\s+seconds/i)?.[1]
   if (/over_email_send_rate_limit|security purposes|rate limit|429/i.test(message)) {
@@ -575,6 +589,7 @@ function App() {
   const [authToken, setAuthToken] = useStoredState<string | null>('mirror-isle:auth-token', null)
   const [treePosts, setTreePosts] = useStoredState<TreePost[]>('mirror-isle:tree-posts', seedTreePosts)
   const [chatMessages, setChatMessages] = useStoredState<ChatMessage[]>('mirror-isle:messages', startingMessages)
+  const [localConversations, setLocalConversations] = useStoredState<Record<string, ChatMessage[]>>('mirror-isle:local-conversations', {})
   const [selectedCandidateId, setSelectedCandidateId] = useStoredState('mirror-isle:selected', candidates[0].id)
   const [questionIndex, setQuestionIndex] = useStoredState('mirror-isle:question-index', 0)
   const [remoteCandidates, setRemoteCandidates] = useState<Array<Candidate & { liveScore: number }> | null>(null)
@@ -828,14 +843,21 @@ function App() {
     window.localStorage.removeItem('mirror-isle:draft')
     window.localStorage.removeItem('mirror-isle:question-index')
     window.localStorage.removeItem('mirror-isle:messages')
+    window.localStorage.removeItem('mirror-isle:local-conversations')
     window.localStorage.removeItem('mirror-isle:tree-posts')
     window.localStorage.removeItem('mirror-isle:conversation-ids')
+    window.localStorage.removeItem('mirror-isle:saved-reports')
+    window.localStorage.removeItem('mirror-isle:planned-practices')
+    window.localStorage.removeItem('mirror-isle:growth-discussion')
+    window.localStorage.removeItem('mirror-isle:fellow-offset')
+    window.localStorage.removeItem('mirror-isle:privacy-settings')
     setProfile(null)
     setAuthToken(null)
     setDraft(defaultDraft)
     setAnswers({})
     setQuestionIndex(0)
     setChatMessages(startingMessages)
+    setLocalConversations({})
     setTreePosts(seedTreePosts)
     setRemoteCandidates(null)
     setConversationIds({})
@@ -871,7 +893,7 @@ function App() {
     async (candidateId: string) => {
       if (!authToken || !profile) return
       if (isSampleCandidateId(candidateId)) {
-        setChatMessages([])
+        setChatMessages(localConversations[candidateId] ?? [])
         return
       }
       try {
@@ -890,7 +912,7 @@ function App() {
         showToast('消息同步失败，请稍后重试')
       }
     },
-    [authToken, getConversationId, profile, setChatMessages, showToast],
+    [authToken, getConversationId, localConversations, profile, setChatMessages, showToast],
   )
 
   const sendRemoteMessage = async (candidateId: string, content: string) => {
@@ -899,7 +921,20 @@ function App() {
       return
     }
     if (isSampleCandidateId(candidateId)) {
-      showToast('样例用户仅用于展示，真实内测用户加入后即可发消息')
+      const candidate = rankedCandidates.find((item) => item.id === candidateId)
+      const currentThread = localConversations[candidateId] ?? []
+      const nextThread = [
+        ...currentThread,
+        { id: `local-${Date.now()}`, from: 'me' as const, text: content },
+        {
+          id: `local-reply-${Date.now()}`,
+          from: 'them' as const,
+          text: buildSampleReply(candidate, content),
+        },
+      ]
+      setLocalConversations({ ...localConversations, [candidateId]: nextThread })
+      setChatMessages(nextThread)
+      showToast('本地样例会话已发送')
       return
     }
     const conversationId = await getConversationId(candidateId)
@@ -1373,12 +1408,29 @@ function AppShell({
   onToast: (message: string) => void
 }) {
   const [showGraph, setShowGraph] = useState(false)
+  const [growthPanel, setGrowthPanel] = useState<GrowthPanel>('home')
+  const [savedReportIds, setSavedReportIds] = useStoredState<string[]>('mirror-isle:saved-reports', [])
+  const [plannedPracticeIds, setPlannedPracticeIds] = useStoredState<string[]>('mirror-isle:planned-practices', [])
   const swipeStart = useRef<{ x: number; y: number } | null>(null)
   const activeIndex = Math.max(0, tabOrder.indexOf(activeTab))
 
   useEffect(() => {
     setShowGraph(false)
   }, [activeTab])
+
+  const toggleSavedReport = (candidateId: string) => {
+    const isSaved = savedReportIds.includes(candidateId)
+    setSavedReportIds(isSaved ? savedReportIds.filter((id) => id !== candidateId) : [...savedReportIds, candidateId])
+    onToast(isSaved ? '已取消收藏' : '关系报告已收藏')
+  }
+
+  const togglePractice = (practiceId: string) => {
+    const isPlanned = plannedPracticeIds.includes(practiceId)
+    setPlannedPracticeIds(
+      isPlanned ? plannedPracticeIds.filter((id) => id !== practiceId) : [...plannedPracticeIds, practiceId],
+    )
+    onToast(isPlanned ? '已从今日计划移除' : '已加入今日计划')
+  }
 
   const goToTabOffset = (offset: number) => {
     const nextIndex = clamp(activeIndex + offset, 0, tabOrder.length - 1)
@@ -1442,12 +1494,13 @@ function AppShell({
             <RelationshipGraph
               profile={profile}
               candidate={selectedCandidate}
+              isSaved={savedReportIds.includes(selectedCandidate.id)}
               onBack={() => setShowGraph(false)}
               onChat={() => {
                 setShowGraph(false)
                 setActiveTab('messages')
               }}
-              onToast={onToast}
+              onToggleSave={() => toggleSavedReport(selectedCandidate.id)}
             />
           )}
 
@@ -1468,7 +1521,19 @@ function AppShell({
                 <TreePage profile={profile} posts={treePosts} setPosts={setTreePosts} onCreatePost={onCreateTreePost} onToast={onToast} />
               </section>
               <section className="swipe-pane" aria-hidden={activeTab !== 'growth'}>
-                <GrowthPage profile={profile} candidates={rankedCandidates} onToast={onToast} />
+                <GrowthPage
+                  profile={profile}
+                  candidates={rankedCandidates}
+                  activePanel={growthPanel}
+                  plannedPracticeIds={plannedPracticeIds}
+                  onOpenPanel={setGrowthPanel}
+                  onTogglePractice={togglePractice}
+                  onOpenCandidate={(candidateId) => {
+                    setSelectedCandidateId(candidateId)
+                    setShowGraph(true)
+                  }}
+                  onToast={onToast}
+                />
               </section>
               <section className="swipe-pane" aria-hidden={activeTab !== 'messages'}>
                 <MessagesPage
@@ -1476,11 +1541,19 @@ function AppShell({
                   messages={chatMessages}
                   onSendMessage={onSendMessage}
                   onOpenGraph={() => setShowGraph(true)}
-                  onToast={onToast}
                 />
               </section>
               <section className="swipe-pane" aria-hidden={activeTab !== 'me'}>
-                <MePage profile={profile} onReset={onReset} onRetake={onRetake} onSubmitIdentity={onSubmitIdentity} onToast={onToast} />
+                <MePage
+                  profile={profile}
+                  savedCandidates={rankedCandidates.filter((candidate) => savedReportIds.includes(candidate.id))}
+                  plannedPracticeCount={plannedPracticeIds.length}
+                  onOpenTab={setActiveTab}
+                  onReset={onReset}
+                  onRetake={onRetake}
+                  onSubmitIdentity={onSubmitIdentity}
+                  onToast={onToast}
+                />
               </section>
             </div>
           )}
@@ -1579,15 +1652,17 @@ function MeetPage({
 function RelationshipGraph({
   profile,
   candidate,
+  isSaved,
   onBack,
   onChat,
-  onToast,
+  onToggleSave,
 }: {
   profile: Profile
   candidate: Candidate & { liveScore: number }
+  isSaved: boolean
   onBack: () => void
   onChat: () => void
-  onToast: (message: string) => void
+  onToggleSave: () => void
 }) {
   return (
     <div className="graph-page">
@@ -1599,8 +1674,8 @@ function RelationshipGraph({
           <strong>关系图谱</strong>
           <small>你 × {candidate.name}</small>
         </div>
-        <button className="icon-button" onClick={() => onToast('关系报告已收藏')} aria-label="收藏关系报告">
-          <Bookmark size={20} />
+        <button className={isSaved ? 'icon-button active' : 'icon-button'} onClick={onToggleSave} aria-label="收藏关系报告">
+          <Bookmark size={20} fill={isSaved ? 'currentColor' : 'none'} />
         </button>
       </div>
 
@@ -1632,9 +1707,9 @@ function RelationshipGraph({
           <MessageCircle size={18} />
           开始对话
         </button>
-        <button className="ghost-button full" onClick={() => onToast('关系报告已收藏')}>
-          <Star size={18} />
-          收藏关系报告
+        <button className="ghost-button full" onClick={onToggleSave}>
+          <Star size={18} fill={isSaved ? 'currentColor' : 'none'} />
+          {isSaved ? '取消收藏' : '收藏关系报告'}
         </button>
       </div>
     </div>
@@ -1724,13 +1799,149 @@ function TreePage({
 function GrowthPage({
   profile,
   candidates,
+  activePanel,
+  plannedPracticeIds,
+  onOpenPanel,
+  onTogglePractice,
+  onOpenCandidate,
   onToast,
 }: {
   profile: Profile
   candidates: Array<Candidate & { liveScore: number }>
+  activePanel: GrowthPanel
+  plannedPracticeIds: string[]
+  onOpenPanel: (panel: GrowthPanel) => void
+  onTogglePractice: (practiceId: string) => void
+  onOpenCandidate: (candidateId: string) => void
   onToast: (message: string) => void
 }) {
   const topAnchor = profile.traits.anchors[0] ?? '边界练习者'
+  const [fellowOffset, setFellowOffset] = useStoredState('mirror-isle:fellow-offset', 0)
+  const [discussionDraft, setDiscussionDraft] = useState('')
+  const [discussionReplies, setDiscussionReplies] = useStoredState<string[]>('mirror-isle:growth-discussion', [])
+  const visibleFellows = candidates.length
+    ? [...candidates.slice(fellowOffset), ...candidates.slice(0, fellowOffset)].slice(0, 2)
+    : []
+
+  const rotateFellows = () => {
+    setFellowOffset(candidates.length ? (fellowOffset + 2) % candidates.length : 0)
+    onToast('已换一批同路人')
+  }
+
+  const publishDiscussion = () => {
+    if (!discussionDraft.trim()) return
+    setDiscussionReplies([discussionDraft.trim(), ...discussionReplies].slice(0, 12))
+    setDiscussionDraft('')
+    onToast('讨论已发布')
+  }
+
+  if (activePanel !== 'home') {
+    return (
+      <div className="page-stack growth-detail">
+        <div className="subpage-head">
+          <button className="icon-button" onClick={() => onOpenPanel('home')} aria-label="返回成长">
+            <ChevronRight className="back-icon" size={22} />
+          </button>
+          <div>
+            <strong>{growthPanelTitle(activePanel)}</strong>
+            <small>把成长落到今天能做的一步</small>
+          </div>
+        </div>
+
+        {activePanel === 'path' && (
+          <>
+            <section className="detail-card">
+              <span className="eyebrow">本周路径</span>
+              <h2>{topAnchor.includes('边界') ? '先照顾边界，再靠近关系' : '先真实表达，再等待回应'}</h2>
+              <p>你的心谱置信度为 {profile.traits.confidence}%，适合从小而清楚的表达开始。</p>
+            </section>
+            <ProfileSnapshot profile={profile} />
+          </>
+        )}
+
+        {activePanel === 'reading' && (
+          <div className="detail-list">
+            {readingItems.map((item) => (
+              <article className="detail-item" key={item.title}>
+                <BookOpen size={18} />
+                <div>
+                  <strong>{item.title}</strong>
+                  <small>{item.meta}</small>
+                  <p>{item.brief}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+
+        {activePanel === 'practice' && (
+          <div className="detail-list">
+            {practiceItems.map((item) => {
+              const planned = plannedPracticeIds.includes(item.id)
+              return (
+                <button
+                  className={planned ? 'detail-item active' : 'detail-item'}
+                  key={item.id}
+                  onClick={() => onTogglePractice(item.id)}
+                >
+                  <Leaf size={18} />
+                  <div>
+                    <strong>{item.title}</strong>
+                    <small>{planned ? '已在今日计划' : item.duration}</small>
+                    <p>{item.detail}</p>
+                  </div>
+                  <CircleCheck size={18} />
+                </button>
+              )
+            })}
+          </div>
+        )}
+
+        {activePanel === 'discussion' && (
+          <>
+            <section className="detail-card">
+              <span className="eyebrow">同题讨论</span>
+              <h2>拒绝别人时，你最担心失去什么？</h2>
+              <label className="inline-compose">
+                <textarea
+                  value={discussionDraft}
+                  onChange={(event) => setDiscussionDraft(event.target.value)}
+                  placeholder="写下你的真实想法..."
+                />
+                <button className="primary-button" onClick={publishDiscussion}>
+                  发布
+                </button>
+              </label>
+            </section>
+            <div className="mini-feed">
+              {discussionReplies.length ? (
+                discussionReplies.map((reply, index) => <p key={`${reply}-${index}`}>{reply}</p>)
+              ) : (
+                <p>还没有本机讨论记录，写下第一条想法。</p>
+              )}
+            </div>
+          </>
+        )}
+
+        {activePanel === 'fellows' && (
+          <div className="candidate-list compact-list">
+            {candidates.map((candidate) => (
+              <button className="candidate-card" key={candidate.id} onClick={() => onOpenCandidate(candidate.id)}>
+                <AvatarMark label={candidate.avatar} />
+                <div className="candidate-main">
+                  <div className="candidate-title">
+                    <strong>{candidate.name}</strong>
+                    <span>{candidate.liveScore}%</span>
+                  </div>
+                  <p>{candidate.intro}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className="page-stack">
@@ -1740,46 +1951,46 @@ function GrowthPage({
         <div className="progress-line">
           <i style={{ width: `${profile.traits.confidence}%` }} />
         </div>
-        <button className="ghost-button" onClick={() => onToast('成长路径已打开')}>
+        <button className="ghost-button" onClick={() => onOpenPanel('path')}>
           查看成长路径
           <ChevronRight size={17} />
         </button>
       </section>
 
-      <SectionTitle title="推荐阅读" icon={BookOpen} action="查看全部" />
+      <SectionTitle title="推荐阅读" icon={BookOpen} action="查看全部" onAction={() => onOpenPanel('reading')} />
       <div className="reading-row">
-        {['被讨厌的勇气', '界限：通往个人自由', '也许你该找个人聊聊'].map((title, index) => (
-          <article key={title} className={`reading-card tone-${index + 1}`}>
-            <strong>{title}</strong>
-            <span>心理学</span>
+        {readingItems.map((item, index) => (
+          <article key={item.title} className={`reading-card tone-${index + 1}`} onClick={() => onOpenPanel('reading')}>
+            <strong>{item.title}</strong>
+            <span>{item.meta}</span>
           </article>
         ))}
       </div>
 
       <SectionTitle title="认知练习" icon={Leaf} />
-      <button className="practice-card" onClick={() => onToast('练习已加入今日计划')}>
+      <button className="practice-card" onClick={() => onOpenPanel('practice')}>
         <Leaf size={24} />
         <div>
-          <strong>识别你的边界信号</strong>
-          <span>觉察你在关系中感到不适的时刻</span>
+          <strong>{practiceItems[0].title}</strong>
+          <span>{plannedPracticeIds.length ? `今日已加入 ${plannedPracticeIds.length} 个练习` : practiceItems[0].detail}</span>
         </div>
-        <small>约 8 分钟</small>
+        <small>{practiceItems[0].duration}</small>
       </button>
 
       <SectionTitle title="同题讨论" icon={MessageCircle} />
-      <button className="discussion-card" onClick={() => onToast('已进入同题讨论')}>
+      <button className="discussion-card" onClick={() => onOpenPanel('discussion')}>
         <span>“拒绝别人时，你最担心失去什么？”</span>
-        <small>1,284 人参与讨论</small>
+        <small>{discussionReplies.length ? `${discussionReplies.length} 条本机讨论` : '进入讨论'}</small>
       </button>
 
-      <SectionTitle title="与你同路的人" icon={Users} action="换一批" />
+      <SectionTitle title="与你同路的人" icon={Users} action="换一批" onAction={rotateFellows} />
       <div className="fellow-row">
-        {candidates.slice(0, 2).map((candidate) => (
-          <article key={candidate.id} className="fellow-card">
+        {visibleFellows.map((candidate) => (
+          <button key={candidate.id} className="fellow-card" onClick={() => onOpenCandidate(candidate.id)}>
             <AvatarMark label={candidate.avatar} />
             <strong>{candidate.name}</strong>
             <span>{candidate.tags[0]}</span>
-          </article>
+          </button>
         ))}
       </div>
     </div>
@@ -1791,13 +2002,11 @@ function MessagesPage({
   messages,
   onSendMessage,
   onOpenGraph,
-  onToast,
 }: {
   candidate: Candidate & { liveScore: number }
   messages: ChatMessage[]
   onSendMessage: (candidateId: string, content: string) => Promise<void>
   onOpenGraph: () => void
-  onToast: (message: string) => void
 }) {
   const [draft, setDraft] = useState('')
   const sampleCandidate = isSampleCandidateId(candidate.id)
@@ -1806,7 +2015,7 @@ function MessagesPage({
     if (!draft.trim()) return
     const content = draft.trim()
     await onSendMessage(candidate.id, content)
-    if (!sampleCandidate) setDraft('')
+    setDraft('')
   }
 
   return (
@@ -1828,10 +2037,6 @@ function MessagesPage({
           <button
             key={`${opener}-${index}`}
             onClick={() => {
-              if (sampleCandidate) {
-                onToast('样例用户仅用于展示，真实内测用户加入后即可发消息')
-                return
-              }
               setDraft(opener)
             }}
           >
@@ -1861,10 +2066,9 @@ function MessagesPage({
           onKeyDown={(event) => {
             if (event.key === 'Enter') sendMessage()
           }}
-          disabled={sampleCandidate}
-          placeholder={sampleCandidate ? '等待真实内测用户' : '写点真诚的话...'}
+          placeholder={sampleCandidate ? '样例会话会保存在本机' : '写点真诚的话...'}
         />
-        <button onClick={sendMessage} aria-label="发送消息" disabled={sampleCandidate}>
+        <button onClick={sendMessage} aria-label="发送消息">
           <Send size={18} />
         </button>
       </label>
@@ -1874,12 +2078,18 @@ function MessagesPage({
 
 function MePage({
   profile,
+  savedCandidates,
+  plannedPracticeCount,
+  onOpenTab,
   onReset,
   onRetake,
   onSubmitIdentity,
   onToast,
 }: {
   profile: Profile
+  savedCandidates: Array<Candidate & { liveScore: number }>
+  plannedPracticeCount: number
+  onOpenTab: Dispatch<SetStateAction<TabKey>>
   onReset: () => void
   onRetake: () => void
   onSubmitIdentity: (realName: string, idNumber: string) => Promise<void>
@@ -1887,6 +2097,73 @@ function MePage({
 }) {
   const [realName, setRealName] = useState('')
   const [idNumber, setIdNumber] = useState('')
+  const [panel, setPanel] = useState<MePanel>('home')
+  const [privacySettings, setPrivacySettings] = useStoredState('mirror-isle:privacy-settings', {
+    profileVisible: true,
+    messageNotice: true,
+    safeMode: true,
+  })
+
+  if (panel !== 'home') {
+    return (
+      <div className="page-stack me-detail">
+        <div className="subpage-head">
+          <button className="icon-button" onClick={() => setPanel('home')} aria-label="返回我的">
+            <ChevronRight className="back-icon" size={22} />
+          </button>
+          <div>
+            <strong>{panel === 'saved' ? '我的收藏' : '隐私与安全'}</strong>
+            <small>{panel === 'saved' ? `${savedCandidates.length} 份关系报告` : '本机设置即时生效'}</small>
+          </div>
+        </div>
+
+        {panel === 'saved' && (
+          <div className="detail-list">
+            {savedCandidates.length ? (
+              savedCandidates.map((candidate) => (
+                <article className="detail-item" key={candidate.id}>
+                  <Bookmark size={18} />
+                  <div>
+                    <strong>{candidate.name} · {candidate.liveScore}%</strong>
+                    <small>{candidate.type} · {candidate.city}</small>
+                    <p>{candidate.intro}</p>
+                  </div>
+                </article>
+              ))
+            ) : (
+              <section className="detail-card">
+                <h2>还没有收藏</h2>
+                <p>在关系图谱里点击星标，就会保存到这里。</p>
+              </section>
+            )}
+          </div>
+        )}
+
+        {panel === 'privacy' && (
+          <section className="settings-card">
+            <ToggleRow
+              title="公开我的基础画像"
+              text="关闭后，本机将标记为更低曝光。"
+              checked={privacySettings.profileVisible}
+              onChange={() => setPrivacySettings({ ...privacySettings, profileVisible: !privacySettings.profileVisible })}
+            />
+            <ToggleRow
+              title="消息提醒"
+              text="保留新消息提醒入口。"
+              checked={privacySettings.messageNotice}
+              onChange={() => setPrivacySettings({ ...privacySettings, messageNotice: !privacySettings.messageNotice })}
+            />
+            <ToggleRow
+              title="安全模式"
+              text="敏感内容会进入审核状态。"
+              checked={privacySettings.safeMode}
+              onChange={() => setPrivacySettings({ ...privacySettings, safeMode: !privacySettings.safeMode })}
+            />
+          </section>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className="page-stack">
@@ -1926,14 +2203,14 @@ function MePage({
       </section>
 
       <section className="menu-card">
-        <MenuButton icon={Users} title="我的关系报告" text="洞察你的人际模式与关系质量" onClick={() => onToast('关系报告已打开')} />
-        <MenuButton icon={MessageCircle} title="我的树洞" text="记录心事，收藏温暖的回应" onClick={() => onToast('树洞记录已打开')} />
-        <MenuButton icon={Leaf} title="成长记录" text="回顾你的变化与每一次突破" onClick={() => onToast('成长记录已打开')} />
-        <MenuButton icon={Bookmark} title="收藏" text="收藏的问答、文章与心动时刻" onClick={() => onToast('收藏已打开')} />
+        <MenuButton icon={Users} title="我的关系报告" text={`${savedCandidates.length} 份已收藏报告`} onClick={() => onOpenTab('meet')} />
+        <MenuButton icon={MessageCircle} title="我的树洞" text="记录心事，收藏温暖的回应" onClick={() => onOpenTab('tree')} />
+        <MenuButton icon={Leaf} title="成长记录" text={`今日计划 ${plannedPracticeCount} 项`} onClick={() => onOpenTab('growth')} />
+        <MenuButton icon={Bookmark} title="收藏" text="收藏的报告会保存到本机" onClick={() => setPanel('saved')} />
       </section>
 
       <section className="menu-card">
-        <MenuButton icon={ShieldCheck} title="隐私与安全" text="管理你的数据与隐私设置" onClick={() => onToast('隐私设置已打开')} />
+        <MenuButton icon={ShieldCheck} title="隐私与安全" text="管理你的数据与隐私设置" onClick={() => setPanel('privacy')} />
         <MenuButton icon={NotebookTabs} title="重新完成心谱" text="更新你的画像与推荐权重" onClick={onRetake} />
         <MenuButton icon={CircleAlert} title="退出并重新登录" text="清除本机登录状态" onClick={onReset} />
       </section>
@@ -2038,14 +2315,28 @@ function InsightCard({
   )
 }
 
-function SectionTitle({ title, icon: Icon, action }: { title: string; icon: LucideIcon; action?: string }) {
+function SectionTitle({
+  title,
+  icon: Icon,
+  action,
+  onAction,
+}: {
+  title: string
+  icon: LucideIcon
+  action?: string
+  onAction?: () => void
+}) {
   return (
     <div className="section-title">
       <div>
         <Icon size={18} />
         <h2>{title}</h2>
       </div>
-      {action && <span>{action}</span>}
+      {action && (
+        <button type="button" onClick={onAction} disabled={!onAction}>
+          {action}
+        </button>
+      )}
     </div>
   )
 }
@@ -2119,6 +2410,28 @@ function MenuButton({
   )
 }
 
+function ToggleRow({
+  title,
+  text,
+  checked,
+  onChange,
+}: {
+  title: string
+  text: string
+  checked: boolean
+  onChange: () => void
+}) {
+  return (
+    <button className={checked ? 'toggle-row active' : 'toggle-row'} type="button" onClick={onChange}>
+      <span>
+        <strong>{title}</strong>
+        <small>{text}</small>
+      </span>
+      <i aria-hidden="true" />
+    </button>
+  )
+}
+
 function scoreCandidate(traits: Traits, candidate: Candidate) {
   const weights: Record<DimensionKey, number> = {
     values: 0.25,
@@ -2163,6 +2476,22 @@ function identityStatusText(status?: string) {
   if (status === 'pending_manual_review') return '已提交，等待人工审核'
   if (status === 'rejected') return '实名未通过，请重新提交'
   return '未提交实名信息'
+}
+
+function growthPanelTitle(panel: GrowthPanel) {
+  if (panel === 'path') return '成长路径'
+  if (panel === 'reading') return '推荐阅读'
+  if (panel === 'practice') return '认知练习'
+  if (panel === 'discussion') return '同题讨论'
+  if (panel === 'fellows') return '同路的人'
+  return '成长'
+}
+
+function buildSampleReply(candidate: (Candidate & { liveScore: number }) | undefined, content: string) {
+  const name = candidate?.name ?? '镜屿'
+  const tag = candidate?.tags[0] ?? '真实表达'
+  if (content.length < 12) return `${name}：我收到了。也许可以多说一点，关于“${tag}”的那部分。`
+  return `${name}：这句话很真实。我会先记住你的感受，再慢慢回应，不急着给答案。`
 }
 
 function mapApiProfile(item: ApiProfile, avatar = '澄'): Profile {
