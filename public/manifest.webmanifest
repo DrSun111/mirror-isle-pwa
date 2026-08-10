@@ -1,14 +1,14 @@
 {
-  "name": "拾匠 - 纯净手工教程分享平台",
-  "short_name": "拾匠",
-  "description": "手工教程、传统国风非遗、AI内容预审、问答与材料互换。",
+  "name": "镜屿 - 心理成长型深度关系产品",
+  "short_name": "镜屿",
+  "description": "通过初见心谱、每日有限推荐、关系图谱、树洞与成长内容，帮助用户减少无效认识，遇见真正合适的人。",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#F5F0EB",
-  "theme_color": "#C48B67",
-  "categories": ["education", "lifestyle", "productivity"],
+  "background_color": "#F7F3EC",
+  "theme_color": "#173B61",
+  "categories": ["social", "lifestyle", "productivity"],
   "icons": [
     {
       "src": "icons/icon-192.png",
@@ -21,6 +21,22 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "assets/mirror/welcome.png",
+      "sizes": "936x1624",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "镜屿注册欢迎页"
+    },
+    {
+      "src": "assets/mirror/relationship-map.png",
+      "sizes": "936x1624",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "镜屿关系图谱"
     }
   ]
 }

@@ -1,9 +1,9 @@
 :root {
   font-family:
-    Inter, "Microsoft YaHei", "PingFang SC", system-ui, -apple-system, BlinkMacSystemFont,
-    "Segoe UI", sans-serif;
-  color: #2f2722;
-  background: #f5f0eb;
+    "Noto Sans CJK SC", "Microsoft YaHei", "PingFang SC", system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #173b61;
+  background: #f7f3ec;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -38,15 +38,24 @@ button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 2px solid #e8823b;
+  outline: 2px solid #4277a5;
   outline-offset: 2px;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.54;
 }
 
 img {
   display: block;
 }
 
+textarea {
+  line-height: 1.6;
+}
+
 ::selection {
   color: #fff;
-  background: #c48b67;
+  background: #173b61;
 }

@@ -1,12 +1,17 @@
-const CACHE_NAME = 'shijiang-pwa-v1'
+const CACHE_NAME = 'mirror-isle-pwa-v1'
 const APP_SHELL = [
   './',
   './manifest.webmanifest',
-  './cloud/shijiang-data.json',
-  './assets/crafts/hero-craft.png',
-  './assets/crafts/china-craft.png',
+  './og.png',
   './icons/icon-192.png',
-  './icons/icon-512.png'
+  './icons/icon-512.png',
+  './assets/mirror/welcome.png',
+  './assets/mirror/meet.png',
+  './assets/mirror/relationship-map.png',
+  './assets/mirror/treehole.png',
+  './assets/mirror/growth.png',
+  './assets/mirror/chat.png',
+  './assets/mirror/mine.png'
 ]
 
 self.addEventListener('install', (event) => {
