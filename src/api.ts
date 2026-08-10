@@ -188,6 +188,61 @@ const request = async <T>(path: string, options: RequestInit = {}, token?: strin
   return response.json() as Promise<T>
 }
 
+const supabaseAuthRequest = async <T>(path: string, body: Record<string, unknown>): Promise<T> => {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) throw new Error('supabase_not_configured')
+
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort(), 18000)
+  const authUrl = `${SUPABASE_URL.replace(/\/$/, '')}/auth/v1${path}`
+
+  try {
+    const response = await fetch(authUrl, {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+        'X-Client-Info': 'mirror-isle-beta',
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    })
+
+    const text = await response.text().catch(() => '')
+    let data: Record<string, unknown> = {}
+    if (text) {
+      try {
+        data = JSON.parse(text) as Record<string, unknown>
+      } catch {
+        data = { message: text }
+      }
+    }
+
+    if (!response.ok) {
+      const code = data?.error_code ?? data?.code
+      const detail =
+        data?.msg ??
+        data?.message ??
+        data?.error_description ??
+        data?.error ??
+        `${response.status} ${response.statusText}`
+      throw new Error(code ? `${String(code)}: ${String(detail)}` : String(detail))
+    }
+
+    return data as T
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('network_timeout')
+    }
+    if (error instanceof TypeError) {
+      throw new Error('network_unreachable')
+    }
+    throw error
+  } finally {
+    window.clearTimeout(timeout)
+  }
+}
+
 const client = () => {
   if (!supabase) throw new Error('supabase_not_configured')
   return supabase
@@ -344,13 +399,10 @@ export const sendLoginCode = async (email: string) => {
     })
   }
 
-  const { error } = await client().auth.signInWithOtp({
+  await supabaseAuthRequest('/otp', {
     email: email.trim().toLowerCase(),
-    options: {
-      shouldCreateUser: true,
-    },
+    create_user: true,
   })
-  if (error) throw error
   return { email_masked: maskEmail(email), expires_in_seconds: 300, provider: 'supabase_auth' }
 }
 
@@ -362,14 +414,23 @@ export const verifyEmailCode = async (email: string, code: string) => {
     })
   }
 
-  const { data, error } = await client().auth.verifyOtp({
+  const data = await supabaseAuthRequest<{
+    access_token?: string
+    refresh_token?: string
+    user?: User
+  }>('/verify', {
     email: email.trim().toLowerCase(),
     token: code.trim(),
     type: 'email',
   })
-  if (error || !data.session || !data.user) throw error ?? new Error('missing_supabase_session')
+  if (!data.access_token || !data.refresh_token || !data.user) throw new Error('missing_supabase_session')
+  const session = await client().auth.setSession({
+    access_token: data.access_token,
+    refresh_token: data.refresh_token,
+  })
+  if (session.error) throw session.error
   const profile = await ensureProfile(data.user)
-  return { token: data.session.access_token, user: rowToUser(profile, data.user) }
+  return { token: data.access_token, user: rowToUser(profile, data.user) }
 }
 
 export const loginWithCode = async (payload: LoginPayload) =>

@@ -542,6 +542,17 @@ const navItems: Array<{ key: TabKey; label: string; icon: LucideIcon }> = [
 ]
 const tabOrder: TabKey[] = navItems.map((item) => item.key)
 
+function formatEmailAuthError(message: string, fallback: string) {
+  const waitSeconds = message.match(/after\s+(\d+)\s+seconds/i)?.[1]
+  if (/over_email_send_rate_limit|security purposes|rate limit|429/i.test(message)) {
+    return waitSeconds ? `验证码发送太频繁，请 ${waitSeconds} 秒后再试` : '验证码发送太频繁，请稍后再试'
+  }
+  if (/network_timeout/i.test(message)) return '邮箱服务连接超时，请换网络后重试'
+  if (/network_unreachable|failed to fetch|network|fetch/i.test(message)) return '邮箱服务连接失败，请换网络后重试'
+  if (/invalid|expired|token/i.test(message)) return '验证码无效或已过期'
+  return message ? `${fallback}：${message}` : fallback
+}
+
 function App() {
   const [screen, setScreen] = useState<Screen>('welcome')
   const [activeTab, setActiveTab] = useStoredState<TabKey>('mirror-isle:tab', 'meet')
@@ -558,6 +569,8 @@ function App() {
   const [, setBackendState] = useState<'online' | 'offline'>(authToken ? 'online' : 'offline')
   const [apiUser, setApiUser] = useState<ApiUser | null>(null)
   const [toast, setToast] = useState('')
+  const [isSendingCode, setIsSendingCode] = useState(false)
+  const [codeCooldown, setCodeCooldown] = useState(0)
 
   useEffect(() => {
     if (profile && !authToken) {
@@ -571,6 +584,14 @@ function App() {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'auto' })
   }, [screen])
+
+  useEffect(() => {
+    if (!codeCooldown) return undefined
+    const timer = window.setInterval(() => {
+      setCodeCooldown((current) => Math.max(0, current - 1))
+    }, 1000)
+    return () => window.clearInterval(timer)
+  }, [codeCooldown])
 
   useEffect(() => {
     if (!toast) return
@@ -616,13 +637,24 @@ function App() {
       showToast('请先填写有效邮箱')
       return
     }
+    if (isSendingCode) return
+    if (codeCooldown > 0) {
+      showToast(`验证码已发送，请 ${codeCooldown} 秒后再试`)
+      return
+    }
+    setIsSendingCode(true)
     try {
       await sendLoginCode(draft.email)
       setBackendState('online')
       showToast('邮箱码已发送')
-    } catch {
+      setCodeCooldown(60)
+    } catch (error) {
+      console.error('send login code failed', error)
       setBackendState('offline')
-      showToast('邮箱码发送失败，请检查网络或稍后重试')
+      const message = error instanceof Error ? error.message : ''
+      showToast(formatEmailAuthError(message, '邮箱码发送失败'))
+    } finally {
+      setIsSendingCode(false)
     }
   }
 
@@ -644,11 +676,13 @@ function App() {
         privacy: login.user.privacy as PrivacyLevel,
       }))
       setScreen('profile')
-    } catch {
+    } catch (error) {
+      console.error('verify login code failed', error)
       setAuthToken(null)
       setApiUser(null)
       setBackendState('offline')
-      showToast('邮箱码验证失败')
+      const message = error instanceof Error ? error.message : ''
+      showToast(formatEmailAuthError(message, '邮箱码验证失败'))
     }
   }
 
@@ -842,6 +876,8 @@ function App() {
       {screen === 'welcome' && (
           <WelcomeScreen
             draft={draft}
+            isSendingCode={isSendingCode}
+            codeCooldown={codeCooldown}
             setDraft={setDraft}
             onSendCode={requestLoginCode}
             onVerify={verifyEmailAndContinue}
@@ -900,11 +936,15 @@ function App() {
 
 function WelcomeScreen({
   draft,
+  isSendingCode,
+  codeCooldown,
   setDraft,
   onSendCode,
   onVerify,
 }: {
   draft: RegistrationDraft
+  isSendingCode: boolean
+  codeCooldown: number
   setDraft: Dispatch<SetStateAction<RegistrationDraft>>
   onSendCode: () => Promise<void>
   onVerify: () => Promise<void>
@@ -920,7 +960,7 @@ function WelcomeScreen({
           <i />
           <i />
         </div>
-        <h1>寻找世界上<br />另一个自己</h1>
+        <h1>寻找世界上另一个自己</h1>
 
         <div className="entry-login">
           <label>
@@ -943,8 +983,8 @@ function WelcomeScreen({
                 inputMode="numeric"
                 autoComplete="one-time-code"
               />
-              <button type="button" onClick={onSendCode}>
-                获取
+              <button type="button" onClick={onSendCode} disabled={isSendingCode || codeCooldown > 0}>
+                {isSendingCode ? '发送中' : codeCooldown > 0 ? `${codeCooldown}s` : '获取'}
               </button>
             </div>
           </label>
