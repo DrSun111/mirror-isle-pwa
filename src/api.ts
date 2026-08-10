@@ -414,15 +414,32 @@ export const verifyEmailCode = async (email: string, code: string) => {
     })
   }
 
-  const data = await supabaseAuthRequest<{
-    access_token?: string
-    refresh_token?: string
-    user?: User
-  }>('/verify', {
-    email: email.trim().toLowerCase(),
-    token: code.trim(),
-    type: 'email',
-  })
+  const normalizedEmail = email.trim().toLowerCase()
+  const normalizedCode = code.trim()
+  const verifyTypes = ['email', 'signup', 'magiclink']
+  let lastError: unknown = null
+  let data:
+    | {
+        access_token?: string
+        refresh_token?: string
+        user?: User
+      }
+    | null = null
+
+  for (const type of verifyTypes) {
+    try {
+      data = await supabaseAuthRequest('/verify', {
+        email: normalizedEmail,
+        token: normalizedCode,
+        type,
+      })
+      break
+    } catch (error) {
+      lastError = error
+    }
+  }
+
+  if (!data) throw lastError instanceof Error ? lastError : new Error('otp_verify_failed')
   if (!data.access_token || !data.refresh_token || !data.user) throw new Error('missing_supabase_session')
   const session = await client().auth.setSession({
     access_token: data.access_token,
