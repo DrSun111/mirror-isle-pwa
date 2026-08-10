@@ -4,10 +4,12 @@ on:
   push:
     branches:
       - main
+    tags:
+      - "v*"
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -48,8 +50,21 @@ jobs:
         working-directory: android
         run: ./gradlew assembleDebug
 
+      - name: Prepare release APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk mirror-isle-beta-${{ github.ref_name }}.apk
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: mirror-isle-beta-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: mirror-isle-beta-${{ github.ref_name }}.apk
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" "mirror-isle-beta-${{ github.ref_name }}.apk" \
+            --repo "${{ github.repository }}" \
+            --title "镜屿内测版 ${{ github.ref_name }}" \
+            --notes "真实交互与手机端紧凑排版优化版本。"
