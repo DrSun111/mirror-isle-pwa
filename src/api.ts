@@ -44,6 +44,14 @@ export interface ApiUser {
   identity_status: string
 }
 
+export interface ApiProfile extends ApiUser {
+  traits: Record<string, number>
+  answers: Record<string, string>
+  confidence: number
+  anchors: string[]
+  created_at: string
+}
+
 export interface ApiRecommendation {
   id: string
   nickname: string
@@ -268,6 +276,15 @@ const rowToUser = (row: MirrorProfileRow, user?: User | null): ApiUser => ({
   identity_status: row.identity_status,
 })
 
+const rowToProfile = (row: MirrorProfileRow, user?: User | null): ApiProfile => ({
+  ...rowToUser(row, user),
+  traits: row.traits ?? defaultTraits,
+  answers: (row.answers ?? {}) as Record<string, string>,
+  confidence: row.confidence ?? 48,
+  anchors: row.anchors?.length ? row.anchors : ['Deep explorer'],
+  created_at: row.created_at,
+})
+
 const getCurrentUser = async () => {
   const { data, error } = await client().auth.getUser()
   if (error || !data.user) throw error ?? new Error('missing_supabase_user')
@@ -448,6 +465,35 @@ export const verifyEmailCode = async (email: string, code: string) => {
   if (session.error) throw session.error
   const profile = await ensureProfile(data.user)
   return { token: data.access_token, user: rowToUser(profile, data.user) }
+}
+
+export const loginWithPassword = async (email: string, password: string) => {
+  if (!hasSupabase()) {
+    return request<{ token: string; user: ApiUser; profile: ApiProfile }>('/auth/password-login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    })
+  }
+
+  const { data, error } = await client().auth.signInWithPassword({
+    email: email.trim().toLowerCase(),
+    password,
+  })
+  if (error || !data.session || !data.user) throw error ?? new Error('missing_supabase_session')
+  const profile = await ensureProfile(data.user)
+  return {
+    token: data.session.access_token,
+    user: rowToUser(profile, data.user),
+    profile: rowToProfile(profile, data.user),
+  }
+}
+
+export const setAccountPassword = async (password: string) => {
+  if (!hasSupabase()) return { ok: true }
+
+  const { error } = await client().auth.updateUser({ password })
+  if (error) throw error
+  return { ok: true }
 }
 
 export const loginWithCode = async (payload: LoginPayload) =>

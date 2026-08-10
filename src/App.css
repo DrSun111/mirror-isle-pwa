@@ -1583,6 +1583,32 @@
   gap: 14px;
 }
 
+.auth-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding: 4px;
+  background: rgba(255, 255, 255, 0.38);
+  border: 1px solid rgba(42, 106, 146, 0.14);
+  border-radius: 14px;
+}
+
+.auth-switch button {
+  min-height: 38px;
+  color: rgba(21, 52, 73, 0.62);
+  background: transparent;
+  border: 0;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.auth-switch button.active {
+  color: #153449;
+  background: #fff8ea;
+  box-shadow: 0 10px 24px rgba(74, 138, 176, 0.16);
+}
+
 .entry-login label,
 .setup-form label,
 .setup-form .field-group {
@@ -1716,6 +1742,31 @@
 
 .setup-panel .check-line {
   color: rgba(247, 243, 236, 0.68);
+}
+
+.avatar-picker {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.avatar-choice {
+  aspect-ratio: 1;
+  color: #fffaf1;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(247, 243, 236, 0.16);
+  border-radius: 16px;
+  cursor: pointer;
+  font-family: "Noto Serif CJK SC", "Songti SC", SimSun, serif;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.avatar-choice.active {
+  color: #173b61;
+  background: #fffaf1;
+  border-color: rgba(214, 169, 82, 0.58);
+  box-shadow: 0 14px 28px rgba(61, 34, 21, 0.18);
 }
 
 @media (max-width: 720px) {

@@ -32,19 +32,23 @@ import {
   fetchConversationMessages,
   fetchRecommendations,
   fetchTreePosts,
+  loginWithPassword,
   saveAssessment,
   sendConversationMessage,
   sendLoginCode,
+  setAccountPassword,
   startConversation,
   submitIdentity,
   updateMe,
   verifyEmailCode,
+  type ApiProfile,
   type ApiRecommendation,
   type ApiTreePost,
   type ApiUser,
 } from './api'
 
 type Screen = 'welcome' | 'profile' | 'assessment' | 'app'
+type AuthMode = 'login' | 'register'
 type TabKey = 'meet' | 'tree' | 'growth' | 'messages' | 'me'
 type RelationGoal = '亲密关系' | '深度朋友' | '成长伙伴'
 type PrivacyLevel = 'private' | 'friends' | 'public'
@@ -53,6 +57,9 @@ type DimensionKey = 'values' | 'lifestyle' | 'relationship' | 'communication' | 
 interface RegistrationDraft {
   email: string
   code: string
+  password: string
+  confirmPassword: string
+  avatar: string
   nickname: string
   city: string
   goal: RelationGoal
@@ -69,6 +76,7 @@ interface Traits extends Record<DimensionKey, number> {
 interface Profile {
   id: string
   email: string
+  avatar: string
   nickname: string
   city: string
   goal: RelationGoal
@@ -141,6 +149,9 @@ const baseUrl = import.meta.env.BASE_URL
 const defaultDraft: RegistrationDraft = {
   email: '',
   code: '',
+  password: '',
+  confirmPassword: '',
+  avatar: '澄',
   nickname: '',
   city: '上海',
   goal: '深度朋友',
@@ -541,6 +552,7 @@ const navItems: Array<{ key: TabKey; label: string; icon: LucideIcon }> = [
   { key: 'me', label: '我的', icon: UserRound },
 ]
 const tabOrder: TabKey[] = navItems.map((item) => item.key)
+const avatarOptions = ['澄', '岛', '月', '星', '林', '海']
 
 function formatEmailAuthError(message: string, fallback: string) {
   const waitSeconds = message.match(/after\s+(\d+)\s+seconds/i)?.[1]
@@ -555,6 +567,7 @@ function formatEmailAuthError(message: string, fallback: string) {
 
 function App() {
   const [screen, setScreen] = useState<Screen>('welcome')
+  const [authMode, setAuthMode] = useState<AuthMode>('login')
   const [activeTab, setActiveTab] = useStoredState<TabKey>('mirror-isle:tab', 'meet')
   const [draft, setDraft] = useStoredState<RegistrationDraft>('mirror-isle:draft', defaultDraft)
   const [answers, setAnswers] = useStoredState<Record<string, string>>('mirror-isle:answers', {})
@@ -658,6 +671,41 @@ function App() {
     }
   }
 
+  const loginWithEmailPassword = async () => {
+    if (!isValidEmail(draft.email) || draft.password.trim().length < 6) {
+      showToast('请填写 QQ 邮箱和至少 6 位密码')
+      return
+    }
+    try {
+      const login = await loginWithPassword(draft.email, draft.password)
+      const nextProfile = mapApiProfile(login.profile, profile?.avatar ?? draft.avatar)
+      setAuthToken(login.token)
+      setApiUser(login.user)
+      setProfile(nextProfile)
+      setDraft((current) => ({
+        ...current,
+        email: draft.email,
+        password: '',
+        confirmPassword: '',
+        avatar: nextProfile.avatar,
+        nickname: nextProfile.nickname,
+        city: nextProfile.city,
+        goal: nextProfile.goal,
+        privacy: nextProfile.privacy,
+      }))
+      setBackendState('online')
+      setActiveTab('meet')
+      setScreen('app')
+      void syncBackendData(login.token)
+      showToast('登录成功')
+    } catch (error) {
+      console.error('password login failed', error)
+      setBackendState('offline')
+      const message = error instanceof Error ? error.message : ''
+      showToast(formatEmailAuthError(message, '登录失败'))
+    }
+  }
+
   const verifyEmailAndContinue = async () => {
     if (!isValidEmail(draft.email) || !draft.code.trim()) {
       showToast('请填写邮箱和邮箱码')
@@ -696,16 +744,25 @@ function App() {
       showToast('请填写昵称和城市')
       return
     }
+    if (draft.password.trim().length < 6) {
+      showToast('请设置至少 6 位登录密码')
+      return
+    }
+    if (draft.password !== draft.confirmPassword) {
+      showToast('两次输入的密码不一致')
+      return
+    }
     if (!draft.ageConfirmed || !draft.agreement) {
       showToast('请确认年龄与协议后继续')
       return
     }
     try {
+      await setAccountPassword(draft.password)
       const result = await updateMe(authToken, {
         nickname: draft.nickname.trim(),
         city: draft.city.trim(),
         goal: draft.goal,
-        privacy: draft.privacy,
+        privacy: 'friends',
         age_confirmed: true,
       })
       setApiUser(result.user)
@@ -748,10 +805,11 @@ function App() {
     const nextProfile: Profile = {
       id: apiUser?.id ?? profile?.id ?? `mirror-${Date.now()}`,
       email: draft.email,
+      avatar: draft.avatar,
       nickname: draft.nickname.trim(),
       city: draft.city.trim() || '上海',
       goal: draft.goal,
-      privacy: draft.privacy,
+      privacy: 'friends',
       identityStatus: apiUser?.identity_status ?? profile?.identityStatus ?? 'unsubmitted',
       traits: remoteTraits,
       answers: nextAnswers,
@@ -874,12 +932,15 @@ function App() {
   return (
     <div className={`mirror-app screen-${screen}`}>
       {screen === 'welcome' && (
-          <WelcomeScreen
+        <WelcomeScreen
+            authMode={authMode}
             draft={draft}
             isSendingCode={isSendingCode}
             codeCooldown={codeCooldown}
+            setAuthMode={setAuthMode}
             setDraft={setDraft}
             onSendCode={requestLoginCode}
+            onPasswordLogin={loginWithEmailPassword}
             onVerify={verifyEmailAndContinue}
           />
       )}
@@ -935,18 +996,24 @@ function App() {
 }
 
 function WelcomeScreen({
+  authMode,
   draft,
   isSendingCode,
   codeCooldown,
+  setAuthMode,
   setDraft,
   onSendCode,
+  onPasswordLogin,
   onVerify,
 }: {
+  authMode: AuthMode
   draft: RegistrationDraft
   isSendingCode: boolean
   codeCooldown: number
+  setAuthMode: Dispatch<SetStateAction<AuthMode>>
   setDraft: Dispatch<SetStateAction<RegistrationDraft>>
   onSendCode: () => Promise<void>
+  onPasswordLogin: () => Promise<void>
   onVerify: () => Promise<void>
 }) {
   return (
@@ -963,6 +1030,14 @@ function WelcomeScreen({
         <h1>寻找世界上另一个自己</h1>
 
         <div className="entry-login">
+          <div className="auth-switch" role="tablist" aria-label="登录方式">
+            <button className={authMode === 'login' ? 'active' : ''} onClick={() => setAuthMode('login')}>
+              登录
+            </button>
+            <button className={authMode === 'register' ? 'active' : ''} onClick={() => setAuthMode('register')}>
+              注册
+            </button>
+          </div>
           <label>
             <span>邮箱</span>
             <input
@@ -973,9 +1048,28 @@ function WelcomeScreen({
               autoComplete="email"
             />
           </label>
-          <label>
-            <span>邮箱码</span>
-            <div className="code-field">
+
+          {authMode === 'login' ? (
+            <>
+              <label>
+                <span>密码</span>
+                <input
+                  value={draft.password}
+                  onChange={(event) => setDraft((current) => ({ ...current, password: event.target.value }))}
+                  placeholder="输入登录密码"
+                  type="password"
+                  autoComplete="current-password"
+                />
+              </label>
+              <button className="primary-button full entry-submit" onClick={onPasswordLogin}>
+                进入镜屿
+              </button>
+            </>
+          ) : (
+            <>
+              <label>
+                <span>邮箱码</span>
+                <div className="code-field">
               <input
                 value={draft.code}
                 onChange={(event) => setDraft((current) => ({ ...current, code: event.target.value }))}
@@ -986,11 +1080,13 @@ function WelcomeScreen({
               <button type="button" onClick={onSendCode} disabled={isSendingCode || codeCooldown > 0}>
                 {isSendingCode ? '发送中' : codeCooldown > 0 ? `${codeCooldown}s` : '获取'}
               </button>
-            </div>
-          </label>
-          <button className="primary-button full entry-submit" onClick={onVerify}>
-            进入镜屿
-          </button>
+                </div>
+              </label>
+              <button className="primary-button full entry-submit" onClick={onVerify}>
+                设置基本信息
+              </button>
+            </>
+          )}
         </div>
       </section>
     </main>
@@ -1024,6 +1120,22 @@ function ProfileSetupScreen({
         </div>
 
         <div className="setup-form">
+          <FieldGroup label="头像">
+            <div className="avatar-picker">
+              {avatarOptions.map((avatar) => (
+                <button
+                  key={avatar}
+                  type="button"
+                  className={draft.avatar === avatar ? 'avatar-choice active' : 'avatar-choice'}
+                  onClick={() => setDraft((current) => ({ ...current, avatar }))}
+                  aria-label={`选择头像 ${avatar}`}
+                >
+                  {avatar}
+                </button>
+              ))}
+            </div>
+          </FieldGroup>
+
           <label>
             <span>昵称</span>
             <input
@@ -1040,24 +1152,32 @@ function ProfileSetupScreen({
               placeholder="上海"
             />
           </label>
+          <label>
+            <span>登录密码</span>
+            <input
+              value={draft.password}
+              onChange={(event) => setDraft((current) => ({ ...current, password: event.target.value }))}
+              placeholder="之后登录只用邮箱和密码"
+              type="password"
+              autoComplete="new-password"
+            />
+          </label>
+          <label>
+            <span>确认密码</span>
+            <input
+              value={draft.confirmPassword}
+              onChange={(event) => setDraft((current) => ({ ...current, confirmPassword: event.target.value }))}
+              placeholder="再输入一次"
+              type="password"
+              autoComplete="new-password"
+            />
+          </label>
 
           <FieldGroup label="当前关系目的">
             <SegmentedControl
               value={draft.goal}
               options={['亲密关系', '深度朋友', '成长伙伴']}
               onChange={(value) => setDraft((current) => ({ ...current, goal: value as RelationGoal }))}
-            />
-          </FieldGroup>
-
-          <FieldGroup label="默认可见范围">
-            <SegmentedControl
-              value={draft.privacy}
-              options={[
-                { label: '仅自己', value: 'private' },
-                { label: '好友', value: 'friends' },
-                { label: '广场', value: 'public' },
-              ]}
-              onChange={(value) => setDraft((current) => ({ ...current, privacy: value as PrivacyLevel }))}
             />
           </FieldGroup>
 
@@ -1107,6 +1227,7 @@ function AssessmentScreen({
   const question = assessmentQuestions[Math.min(questionIndex, assessmentQuestions.length - 1)]
   const answeredCount = Object.keys(answers).length
   const progress = Math.round((answeredCount / assessmentQuestions.length) * 100)
+  const swipeStart = useRef<{ x: number; y: number } | null>(null)
 
   const chooseOption = (optionId: string) => {
     const nextAnswers = { ...answers, [question.id]: optionId }
@@ -1126,14 +1247,53 @@ function AssessmentScreen({
     setQuestionIndex((current) => current + 1)
   }
 
+  const goPreviousQuestion = () => {
+    if (questionIndex <= 0) {
+      onBack()
+      return
+    }
+    setQuestionIndex((current) => Math.max(0, current - 1))
+  }
+
+  const handleTouchStart = (event: TouchEvent<HTMLElement>) => {
+    const touch = event.changedTouches[0]
+    swipeStart.current = { x: touch.clientX, y: touch.clientY }
+  }
+
+  const handleTouchMove = (event: TouchEvent<HTMLElement>) => {
+    const start = swipeStart.current
+    if (!start) return
+    const touch = event.changedTouches[0]
+    const deltaX = touch.clientX - start.x
+    const deltaY = touch.clientY - start.y
+    if (Math.abs(deltaX) > 18 && Math.abs(deltaX) > Math.abs(deltaY)) event.preventDefault()
+  }
+
+  const handleTouchEnd = (event: TouchEvent<HTMLElement>) => {
+    const start = swipeStart.current
+    swipeStart.current = null
+    if (!start) return
+    const touch = event.changedTouches[0]
+    const deltaX = touch.clientX - start.x
+    const deltaY = touch.clientY - start.y
+    if (Math.abs(deltaX) < 34 || Math.abs(deltaX) < Math.abs(deltaY) * 0.8) return
+    if (deltaX < 0) skipQuestion()
+    else goPreviousQuestion()
+  }
+
   return (
     <main className="assessment-layout">
-      <section className="device-panel assessment-panel">
+      <section
+        className="device-panel assessment-panel"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
         <div className="screen-head">
           <button className="icon-button" onClick={onBack} aria-label="返回">
             <ChevronRight className="back-icon" size={22} />
           </button>
-          <AvatarMark label={draft.nickname || '你'} />
+          <AvatarMark label={draft.avatar || draft.nickname || '你'} />
         </div>
 
         <div className="assessment-title">
@@ -1232,6 +1392,15 @@ function AppShell({
     swipeStart.current = { x: touch.clientX, y: touch.clientY }
   }
 
+  const handleTouchMove = (event: TouchEvent<HTMLDivElement>) => {
+    const start = swipeStart.current
+    if (!start || showGraph) return
+    const touch = event.changedTouches[0]
+    const deltaX = touch.clientX - start.x
+    const deltaY = touch.clientY - start.y
+    if (Math.abs(deltaX) > 18 && Math.abs(deltaX) > Math.abs(deltaY)) event.preventDefault()
+  }
+
   const handleTouchEnd = (event: TouchEvent<HTMLDivElement>) => {
     const start = swipeStart.current
     swipeStart.current = null
@@ -1239,7 +1408,7 @@ function AppShell({
     const touch = event.changedTouches[0]
     const deltaX = touch.clientX - start.x
     const deltaY = touch.clientY - start.y
-    if (Math.abs(deltaX) < 54 || Math.abs(deltaX) < Math.abs(deltaY) * 1.2) return
+    if (Math.abs(deltaX) < 34 || Math.abs(deltaX) < Math.abs(deltaY) * 0.8) return
     goToTabOffset(deltaX < 0 ? 1 : -1)
   }
 
@@ -1265,10 +1434,10 @@ function AppShell({
             <strong>镜屿</strong>
             <small>{profile.goal} · {profile.city}</small>
           </div>
-          <AvatarMark label={profile.nickname} />
+          <AvatarMark label={profile.avatar || profile.nickname} />
         </div>
 
-        <div className="device-content" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+        <div className="device-content" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
           {showGraph && (
             <RelationshipGraph
               profile={profile}
@@ -1722,7 +1891,7 @@ function MePage({
   return (
     <div className="page-stack">
       <section className="profile-hero">
-        <AvatarMark label={profile.nickname} size="large" />
+        <AvatarMark label={profile.avatar || profile.nickname} size="large" />
         <div>
           <h1>{profile.nickname}</h1>
           <p>{profile.city} · {profile.goal}</p>
@@ -1994,6 +2163,31 @@ function identityStatusText(status?: string) {
   if (status === 'pending_manual_review') return '已提交，等待人工审核'
   if (status === 'rejected') return '实名未通过，请重新提交'
   return '未提交实名信息'
+}
+
+function mapApiProfile(item: ApiProfile, avatar = '澄'): Profile {
+  return {
+    id: item.id,
+    email: item.email_masked,
+    avatar,
+    nickname: item.nickname,
+    city: item.city,
+    goal: item.goal as RelationGoal,
+    privacy: item.privacy as PrivacyLevel,
+    identityStatus: item.identity_status,
+    traits: {
+      values: item.traits.values ?? 50,
+      lifestyle: item.traits.lifestyle ?? 50,
+      relationship: item.traits.relationship ?? 50,
+      communication: item.traits.communication ?? 50,
+      growth: item.traits.growth ?? 50,
+      boundary: item.traits.boundary ?? 50,
+      confidence: item.confidence ?? 48,
+      anchors: item.anchors?.length ? item.anchors : ['Deep explorer'],
+    },
+    answers: item.answers ?? {},
+    createdAt: item.created_at,
+  }
 }
 
 function mapApiRecommendation(item: ApiRecommendation): Candidate & { liveScore: number } {
