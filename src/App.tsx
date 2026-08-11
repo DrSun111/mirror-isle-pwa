@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, Dispatch, ReactNode, SetStateAction, TouchEvent } from 'react'
+import { Browser } from '@capacitor/browser'
 import type { LucideIcon } from 'lucide-react'
 import {
   Award,
@@ -11,6 +12,7 @@ import {
   CircleCheck,
   Clock3,
   Copy,
+  Download,
   Heart,
   House,
   Landmark,
@@ -58,6 +60,10 @@ type ThemeKey = 'botanical' | 'starlight' | 'sunset' | 'sky' | 'custom'
 type RelationGoal = '亲密关系' | '深度朋友' | '成长伙伴'
 type PrivacyLevel = 'private' | 'friends' | 'public'
 type DimensionKey = 'values' | 'lifestyle' | 'relationship' | 'communication' | 'growth' | 'boundary'
+
+const APP_VERSION = '0.12.0'
+const RELEASES_API_URL = 'https://api.github.com/repos/DrSun111/mirror-isle-pwa/releases/latest'
+const RELEASES_PAGE_URL = 'https://github.com/DrSun111/mirror-isle-pwa/releases/latest'
 
 interface RegistrationDraft {
   email: string
@@ -599,6 +605,14 @@ function formatPasswordAuthError(message: string, fallback: string) {
   return message ? `${fallback}：${message}` : fallback
 }
 
+async function openExternalUrl(url: string) {
+  try {
+    await Browser.open({ url })
+  } catch {
+    window.location.href = url
+  }
+}
+
 function App() {
   const [screen, setScreen] = useState<Screen>('welcome')
   const [authMode, setAuthMode] = useState<AuthMode>('login')
@@ -982,6 +996,31 @@ function App() {
     }
   }
 
+  const checkForUpdate = async () => {
+    try {
+      const response = await fetch(RELEASES_API_URL, {
+        headers: { Accept: 'application/vnd.github+json' },
+      })
+      if (!response.ok) throw new Error(`${response.status} ${response.statusText}`)
+      const latest = (await response.json()) as {
+        tag_name?: string
+        html_url?: string
+        assets?: Array<{ name?: string; browser_download_url?: string }>
+      }
+      const latestVersion = (latest.tag_name ?? '').replace(/^v/i, '')
+      const apkUrl = latest.assets?.find((asset) => asset.name?.endsWith('.apk'))?.browser_download_url
+      if (latestVersion && isVersionNewer(latestVersion, APP_VERSION) && apkUrl) {
+        showToast(`发现新版 v${latestVersion}，正在打开下载`)
+        await openExternalUrl(apkUrl)
+        return
+      }
+      showToast(`已是最新版本 v${APP_VERSION}`)
+    } catch {
+      showToast('正在打开更新页面')
+      await openExternalUrl(RELEASES_PAGE_URL)
+    }
+  }
+
   useEffect(() => {
     if (screen !== 'app' || activeTab !== 'messages' || !selectedCandidate || !authToken) return
     void syncConversationMessages(selectedCandidate.id)
@@ -1056,6 +1095,7 @@ function App() {
           onSendMessage={sendRemoteMessage}
           onAddFriend={addFriend}
           onSearchFriends={searchFriends}
+          onCheckUpdate={checkForUpdate}
           onSubmitIdentity={submitRealIdentity}
           onReset={resetDemo}
           onRetake={() => {
@@ -1406,6 +1446,7 @@ function AppShell({
   onSendMessage,
   onAddFriend,
   onSearchFriends,
+  onCheckUpdate,
   onSubmitIdentity,
   onReset,
   onRetake,
@@ -1431,6 +1472,7 @@ function AppShell({
   onSendMessage: (candidateId: string, content: string) => Promise<void>
   onAddFriend: (candidateId: string) => Promise<void>
   onSearchFriends: (query: string) => Promise<Array<Candidate & { liveScore: number }>>
+  onCheckUpdate: () => Promise<void>
   onSubmitIdentity: (realName: string, idNumber: string) => Promise<void>
   onReset: () => void
   onRetake: () => void
@@ -1545,9 +1587,15 @@ function AppShell({
                   profile={profile}
                   candidates={rankedCandidates}
                   selectedCandidateId={selectedCandidate.id}
+                  friendIds={friendIds}
                   onSelect={(candidateId) => {
                     setSelectedCandidateId(candidateId)
                     setShowGraph(true)
+                  }}
+                  onAddFriend={onAddFriend}
+                  onChat={(candidateId) => {
+                    setSelectedCandidateId(candidateId)
+                    setActiveTab('messages')
                   }}
                 />
               </section>
@@ -1596,6 +1644,7 @@ function AppShell({
                   onCustomAccentChange={setCustomAccent}
                   onReset={onReset}
                   onRetake={onRetake}
+                  onCheckUpdate={onCheckUpdate}
                   onSubmitIdentity={onSubmitIdentity}
                   onToast={onToast}
                 />
@@ -1627,12 +1676,18 @@ function MeetPage({
   profile,
   candidates,
   selectedCandidateId,
+  friendIds,
   onSelect,
+  onAddFriend,
+  onChat,
 }: {
   profile: Profile
   candidates: Array<Candidate & { liveScore: number }>
   selectedCandidateId: string
+  friendIds: string[]
   onSelect: (candidateId: string) => void
+  onAddFriend: (candidateId: string) => Promise<void>
+  onChat: (candidateId: string) => void
 }) {
   return (
     <div className="page-stack">
@@ -1649,31 +1704,54 @@ function MeetPage({
 
       <SectionTitle title="今日 3 位推荐" icon={Sparkles} action="有限推荐" />
       <div className="candidate-list">
-        {candidates.map((candidate) => (
-          <button
-            key={candidate.id}
-            className={candidate.id === selectedCandidateId ? 'candidate-card active' : 'candidate-card'}
-            onClick={() => onSelect(candidate.id)}
-          >
-            <AvatarMark label={candidate.avatar} size="large" />
-            <div className="candidate-main">
-              <div className="candidate-title">
-                <strong>
-                  {candidate.name} · {candidate.age} · {candidate.city}
-                </strong>
-                <span>{candidate.liveScore}%</span>
+        {candidates.map((candidate) => {
+          const isFriend = friendIds.includes(candidate.id)
+          return (
+            <article
+              key={candidate.id}
+              className={candidate.id === selectedCandidateId ? 'candidate-card active' : 'candidate-card'}
+            >
+              <button className="candidate-card-main" onClick={() => onSelect(candidate.id)}>
+                <AvatarMark label={candidate.avatar} size="large" />
+                <div className="candidate-main">
+                  <div className="candidate-title">
+                    <strong>
+                      {candidate.name} · {candidate.age} · {candidate.city}
+                    </strong>
+                    <span>{candidate.liveScore}%</span>
+                  </div>
+                  <div className="tag-row">
+                    <span>{candidate.type}</span>
+                    {candidate.tags.slice(0, 2).map((tag, index) => (
+                      <span key={`${tag}-${index}`}>{tag}</span>
+                    ))}
+                  </div>
+                  <p>{candidate.intro}</p>
+                  <small>查看关系图谱</small>
+                </div>
+              </button>
+              <div className="candidate-actions">
+                <button className="secondary-button" onClick={() => void onAddFriend(candidate.id)}>
+                  <Users size={16} />
+                  {isFriend ? '已是好友' : '添加好友'}
+                </button>
+                <button
+                  className="primary-button"
+                  onClick={() => {
+                    if (isFriend) {
+                      onChat(candidate.id)
+                    } else {
+                      void onAddFriend(candidate.id)
+                    }
+                  }}
+                >
+                  <MessageCircle size={16} />
+                  {isFriend ? '发消息' : '添加并聊天'}
+                </button>
               </div>
-              <div className="tag-row">
-                <span>{candidate.type}</span>
-                {candidate.tags.slice(0, 2).map((tag, index) => (
-                  <span key={`${tag}-${index}`}>{tag}</span>
-                ))}
-              </div>
-              <p>{candidate.intro}</p>
-              <small>查看关系图谱</small>
-            </div>
-          </button>
-        ))}
+            </article>
+          )
+        })}
       </div>
 
       <section className="life-question">
@@ -1731,6 +1809,17 @@ function RelationshipGraph({
       <div className="pair-row">
         <PersonBadge label={profile.nickname} sub={`${profile.city} · ${profile.goal}`} />
         <PersonBadge label={candidate.name} sub={`${candidate.type} · ${candidate.city}`} />
+      </div>
+
+      <div className="graph-actions graph-actions-top">
+        <button className="secondary-button full" onClick={onAddFriend}>
+          <Users size={18} />
+          {isFriend ? '已是朋友' : '加为朋友'}
+        </button>
+        <button className="primary-button full" onClick={onChat}>
+          <MessageCircle size={18} />
+          开始对话
+        </button>
       </div>
 
       <RelationRadar profile={profile} candidate={candidate} />
@@ -2132,6 +2221,10 @@ function MessagesPage({
   return (
     <div className="messages-page">
       <section className="conversation-panel">
+        <div className="conversation-title">
+          <strong>好友 / 会话</strong>
+          <span>{friends.length} 位</span>
+        </div>
         <label className="friend-search">
           <input
             value={query}
@@ -2179,7 +2272,7 @@ function MessagesPage({
               </button>
             ))
           ) : (
-            <div className="compact-empty">还没有好友</div>
+            <div className="compact-empty">搜索 QQ 邮箱或用户 ID 添加好友</div>
           )}
         </div>
       </section>
@@ -2234,6 +2327,7 @@ function MePage({
   onCustomAccentChange,
   onReset,
   onRetake,
+  onCheckUpdate,
   onSubmitIdentity,
   onToast,
 }: {
@@ -2248,6 +2342,7 @@ function MePage({
   onCustomAccentChange: Dispatch<SetStateAction<string>>
   onReset: () => void
   onRetake: () => void
+  onCheckUpdate: () => Promise<void>
   onSubmitIdentity: (realName: string, idNumber: string) => Promise<void>
   onToast: (message: string) => void
 }) {
@@ -2433,6 +2528,7 @@ function MePage({
 
       <section className="menu-card">
         <MenuButton icon={Sparkles} title="主题外观" text={themeOptions.find((item) => item.key === themeKey)?.label ?? '自定义'} onClick={() => setPanel('theme')} />
+        <MenuButton icon={Download} title="检查更新" text={`当前版本 v${APP_VERSION}`} onClick={() => void onCheckUpdate()} />
         <MenuButton icon={ShieldCheck} title="隐私与安全" text="管理你的数据与隐私设置" onClick={() => setPanel('privacy')} />
         <MenuButton icon={NotebookTabs} title="重新完成心谱" text="更新你的画像与推荐权重" onClick={onRetake} />
         <MenuButton icon={CircleAlert} title="退出并重新登录" text="清除本机登录状态" onClick={onReset} />
@@ -2728,6 +2824,19 @@ function mergeCandidates(items: Array<Candidate & { liveScore: number }>) {
     seen.add(item.id)
     return true
   })
+}
+
+function isVersionNewer(latest: string, current: string) {
+  const latestParts = latest.split('.').map((part) => Number.parseInt(part, 10) || 0)
+  const currentParts = current.split('.').map((part) => Number.parseInt(part, 10) || 0)
+  const length = Math.max(latestParts.length, currentParts.length)
+  for (let index = 0; index < length; index += 1) {
+    const latestPart = latestParts[index] ?? 0
+    const currentPart = currentParts[index] ?? 0
+    if (latestPart > currentPart) return true
+    if (latestPart < currentPart) return false
+  }
+  return false
 }
 
 function isArticlePost(post: TreePost) {
