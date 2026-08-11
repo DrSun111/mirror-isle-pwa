@@ -29,12 +29,15 @@ import {
 import './App.css'
 import {
   createTreePost,
+  createFriendship,
   fetchConversationMessages,
+  fetchFriends,
   fetchRecommendations,
   fetchTreePosts,
   loginWithPassword,
   registerWithInvite,
   saveAssessment,
+  searchFriendProfiles,
   sendConversationMessage,
   startConversation,
   submitIdentity,
@@ -612,6 +615,7 @@ function App() {
   const [themeKey, setThemeKey] = useStoredState<ThemeKey>('mirror-isle:theme', 'botanical')
   const [customAccent, setCustomAccent] = useStoredState('mirror-isle:custom-accent', '#6d9a87')
   const [remoteCandidates, setRemoteCandidates] = useState<Array<Candidate & { liveScore: number }> | null>(null)
+  const [remoteFriends, setRemoteFriends] = useState<Array<Candidate & { liveScore: number }>>([])
   const [conversationIds, setConversationIds] = useStoredState<Record<string, string>>('mirror-isle:conversation-ids', {})
   const [, setBackendState] = useState<'online' | 'offline'>(authToken ? 'online' : 'offline')
   const [apiUser, setApiUser] = useState<ApiUser | null>(null)
@@ -646,22 +650,33 @@ function App() {
       .sort((a, b) => b.liveScore - a.liveScore)
   }, [profile, remoteCandidates])
 
+  const knownCandidates = useMemo(
+    () => mergeCandidates([...remoteFriends, ...rankedCandidates]),
+    [rankedCandidates, remoteFriends],
+  )
+
   const selectedCandidate =
-    rankedCandidates.find((candidate) => candidate.id === selectedCandidateId) ?? rankedCandidates[0]
+    knownCandidates.find((candidate) => candidate.id === selectedCandidateId) ?? knownCandidates[0]
 
   const showToast = useCallback((message: string) => setToast(message), [])
 
   const syncBackendData = async (token: string) => {
     try {
-      const [recommendationResult, treeResult] = await Promise.all([
+      const [recommendationResult, treeResult, friendResult] = await Promise.all([
         fetchRecommendations(token).catch(() => ({ items: [], score_version: 'offline' })),
         fetchTreePosts(token).catch(() => ({ items: [] })),
+        fetchFriends(token).catch(() => ({ items: [] })),
       ])
       if (recommendationResult.items.length) {
         setRemoteCandidates(recommendationResult.items.map(mapApiRecommendation))
       }
       if (treeResult.items.length) {
         setTreePosts(treeResult.items.map(mapApiTreePost))
+      }
+      const nextFriends = friendResult.items.map(mapApiRecommendation)
+      setRemoteFriends(nextFriends)
+      if (nextFriends.length) {
+        setFriendIds((current) => [...new Set([...current, ...nextFriends.map((friend) => friend.id)])])
       }
       setBackendState('online')
     } catch {
@@ -829,6 +844,7 @@ function App() {
     setLocalConversations({})
     setTreePosts(seedTreePosts)
     setRemoteCandidates(null)
+    setRemoteFriends([])
     setConversationIds({})
     setFriendIds([])
     setApiUser(null)
@@ -907,7 +923,7 @@ function App() {
       return
     }
     if (isSampleCandidateId(candidateId)) {
-      const candidate = rankedCandidates.find((item) => item.id === candidateId)
+      const candidate = knownCandidates.find((item) => item.id === candidateId)
       const currentThread = localConversations[candidateId] ?? []
       const nextThread = [
         ...currentThread,
@@ -936,15 +952,33 @@ function App() {
       showToast('请先完成内测登录')
       return
     }
-    if (!friendIds.includes(candidateId)) {
-      if (!isSampleCandidateId(candidateId)) {
-        await getConversationId(candidateId)
-      }
-      setFriendIds([...friendIds, candidateId])
+    if (isSampleCandidateId(candidateId)) {
+      if (!friendIds.includes(candidateId)) setFriendIds([...new Set([...friendIds, candidateId])])
+    } else {
+      const result = await createFriendship(authToken, candidateId)
+      const nextFriend = mapApiRecommendation(result.friend)
+      setRemoteFriends((current) => mergeCandidates([nextFriend, ...current]))
+      setConversationIds((current) => ({ ...current, [candidateId]: result.conversation_id }))
+      setFriendIds([...new Set([...friendIds, candidateId])])
     }
     setSelectedCandidateId(candidateId)
     setActiveTab('messages')
     showToast(friendIds.includes(candidateId) ? '已进入朋友对话' : '已添加朋友')
+  }
+
+  const searchFriends = async (query: string) => {
+    if (!authToken) {
+      showToast('请先完成内测登录')
+      return []
+    }
+    try {
+      const result = await searchFriendProfiles(authToken, query)
+      return result.items.map(mapApiRecommendation)
+    } catch (error) {
+      console.error('search friends failed', error)
+      showToast('没有找到可添加的用户')
+      return []
+    }
   }
 
   useEffect(() => {
@@ -1005,6 +1039,7 @@ function App() {
           profile={profile}
           selectedCandidate={selectedCandidate}
           rankedCandidates={rankedCandidates}
+          friendCandidates={knownCandidates.filter((candidate) => friendIds.includes(candidate.id))}
           treePosts={treePosts}
           chatMessages={chatMessages}
           friendIds={friendIds}
@@ -1019,6 +1054,7 @@ function App() {
           onCreateArticle={publishArticle}
           onSendMessage={sendRemoteMessage}
           onAddFriend={addFriend}
+          onSearchFriends={searchFriends}
           onSubmitIdentity={submitRealIdentity}
           onReset={resetDemo}
           onRetake={() => {
@@ -1353,6 +1389,7 @@ function AppShell({
   profile,
   selectedCandidate,
   rankedCandidates,
+  friendCandidates,
   treePosts,
   chatMessages,
   friendIds,
@@ -1367,6 +1404,7 @@ function AppShell({
   onCreateArticle,
   onSendMessage,
   onAddFriend,
+  onSearchFriends,
   onSubmitIdentity,
   onReset,
   onRetake,
@@ -1376,6 +1414,7 @@ function AppShell({
   profile: Profile
   selectedCandidate: Candidate & { liveScore: number }
   rankedCandidates: Array<Candidate & { liveScore: number }>
+  friendCandidates: Array<Candidate & { liveScore: number }>
   treePosts: TreePost[]
   chatMessages: ChatMessage[]
   friendIds: string[]
@@ -1390,6 +1429,7 @@ function AppShell({
   onCreateArticle: (title: string, content: string) => Promise<void>
   onSendMessage: (candidateId: string, content: string) => Promise<void>
   onAddFriend: (candidateId: string) => Promise<void>
+  onSearchFriends: (query: string) => Promise<Array<Candidate & { liveScore: number }>>
   onSubmitIdentity: (realName: string, idNumber: string) => Promise<void>
   onReset: () => void
   onRetake: () => void
@@ -1533,7 +1573,11 @@ function AppShell({
               <section className="swipe-pane" aria-hidden={activeTab !== 'messages'}>
                 <MessagesPage
                   candidate={selectedCandidate}
+                  friends={friendCandidates}
                   messages={chatMessages}
+                  onSelectFriend={(candidateId) => setSelectedCandidateId(candidateId)}
+                  onAddFriend={onAddFriend}
+                  onSearchFriends={onSearchFriends}
                   onSendMessage={onSendMessage}
                   onOpenGraph={() => setShowGraph(true)}
                 />
@@ -1542,7 +1586,7 @@ function AppShell({
                 <MePage
                   profile={profile}
                   savedCandidates={rankedCandidates.filter((candidate) => savedReportIds.includes(candidate.id))}
-                  friendCandidates={rankedCandidates.filter((candidate) => friendIds.includes(candidate.id))}
+                  friendCandidates={friendCandidates}
                   plannedPracticeCount={plannedPracticeIds.length}
                   themeKey={themeKey}
                   customAccent={customAccent}
@@ -2041,16 +2085,27 @@ function GrowthPage({
 
 function MessagesPage({
   candidate,
+  friends,
   messages,
+  onSelectFriend,
+  onAddFriend,
+  onSearchFriends,
   onSendMessage,
   onOpenGraph,
 }: {
   candidate: Candidate & { liveScore: number }
+  friends: Array<Candidate & { liveScore: number }>
   messages: ChatMessage[]
+  onSelectFriend: (candidateId: string) => void
+  onAddFriend: (candidateId: string) => Promise<void>
+  onSearchFriends: (query: string) => Promise<Array<Candidate & { liveScore: number }>>
   onSendMessage: (candidateId: string, content: string) => Promise<void>
   onOpenGraph: () => void
 }) {
   const [draft, setDraft] = useState('')
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<Array<Candidate & { liveScore: number }>>([])
+  const [isSearching, setIsSearching] = useState(false)
 
   const sendMessage = async () => {
     if (!draft.trim()) return
@@ -2059,40 +2114,109 @@ function MessagesPage({
     setDraft('')
   }
 
+  const search = async () => {
+    if (!query.trim()) {
+      setResults([])
+      return
+    }
+    setIsSearching(true)
+    try {
+      const found = await onSearchFriends(query.trim())
+      setResults(found)
+    } finally {
+      setIsSearching(false)
+    }
+  }
+
   return (
-    <div className="chat-page">
-      <header className="chat-head">
-        <AvatarMark label={candidate.avatar} />
-        <div>
-          <strong>{candidate.name}</strong>
-          <small>{candidate.liveScore}% 契合</small>
-        </div>
-        <button className="ghost-button" onClick={onOpenGraph}>
-          图谱
-        </button>
-      </header>
+    <div className="messages-page">
+      <section className="conversation-panel">
+        <label className="friend-search">
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') void search()
+            }}
+            placeholder="QQ邮箱或用户ID"
+          />
+          <button onClick={() => void search()} disabled={isSearching}>
+            {isSearching ? '搜索中' : '搜索'}
+          </button>
+        </label>
 
-      <div className="message-list">
-        {messages.map((message) => (
-          <div key={message.id} className={message.from === 'me' ? 'message mine' : 'message'}>
-            {message.text}
+        {results.length > 0 && (
+          <div className="search-result-list">
+            {results.map((item) => (
+              <article className="friend-row" key={item.id}>
+                <AvatarMark label={item.avatar} />
+                <button type="button" onClick={() => onSelectFriend(item.id)}>
+                  <strong>{item.name}</strong>
+                  <small>{item.city} · {item.liveScore}%</small>
+                </button>
+                <button className="mini-action" onClick={() => void onAddFriend(item.id)}>
+                  添加
+                </button>
+              </article>
+            ))}
           </div>
-        ))}
-      </div>
+        )}
 
-      <label className="chat-input">
-        <input
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') sendMessage()
-          }}
-          placeholder="输入消息"
-        />
-        <button onClick={sendMessage} aria-label="发送消息">
-          <Send size={18} />
-        </button>
-      </label>
+        <div className="friend-list">
+          {friends.length ? (
+            friends.map((friend) => (
+              <button
+                key={friend.id}
+                className={friend.id === candidate.id ? 'friend-row active' : 'friend-row'}
+                onClick={() => onSelectFriend(friend.id)}
+              >
+                <AvatarMark label={friend.avatar} />
+                <span>
+                  <strong>{friend.name}</strong>
+                  <small>{friend.city} · {friend.liveScore}%</small>
+                </span>
+              </button>
+            ))
+          ) : (
+            <div className="compact-empty">还没有好友</div>
+          )}
+        </div>
+      </section>
+
+      <section className="chat-page">
+        <header className="chat-head">
+          <AvatarMark label={candidate.avatar} />
+          <div>
+            <strong>{candidate.name}</strong>
+            <small>{candidate.liveScore}% 契合</small>
+          </div>
+          <button className="ghost-button" onClick={onOpenGraph}>
+            图谱
+          </button>
+        </header>
+
+        <div className="message-list">
+          {messages.map((message) => (
+            <div key={message.id} className={message.from === 'me' ? 'message mine' : 'message'}>
+              {message.text}
+            </div>
+          ))}
+        </div>
+
+        <label className="chat-input">
+          <input
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') sendMessage()
+            }}
+            placeholder="输入消息"
+          />
+          <button onClick={sendMessage} aria-label="发送消息">
+            <Send size={18} />
+          </button>
+        </label>
+      </section>
     </div>
   )
 }
@@ -2582,6 +2706,15 @@ function buildSampleReply(candidate: (Candidate & { liveScore: number }) | undef
   const tag = candidate?.tags[0] ?? '真实表达'
   if (content.length < 12) return `${name}：我收到了。也许可以多说一点，关于“${tag}”的那部分。`
   return `${name}：这句话很真实。我会先记住你的感受，再慢慢回应，不急着给答案。`
+}
+
+function mergeCandidates(items: Array<Candidate & { liveScore: number }>) {
+  const seen = new Set<string>()
+  return items.filter((item) => {
+    if (seen.has(item.id)) return false
+    seen.add(item.id)
+    return true
+  })
 }
 
 function isArticlePost(post: TreePost) {

@@ -72,6 +72,12 @@ export interface ApiRecommendation {
   friction: string[]
 }
 
+export interface ApiFriendResult {
+  friend: ApiRecommendation
+  conversation_id: string
+  friendship_id?: string
+}
+
 export interface ApiTreePost {
   id: string
   author: string
@@ -94,6 +100,7 @@ export interface ApiMessage {
 
 interface MirrorProfileRow {
   id: string
+  email: string | null
   nickname: string
   city: string
   goal: string
@@ -199,6 +206,15 @@ const request = async <T>(path: string, options: RequestInit = {}, token?: strin
   }
 
   return response.json() as Promise<T>
+}
+
+interface MirrorFriendRow {
+  id: string
+  requester_id: string
+  addressee_id: string
+  status: string
+  created_at: string
+  updated_at: string
 }
 
 const supabaseAuthRequest = async <T>(path: string, body: Record<string, unknown>): Promise<T> => {
@@ -308,6 +324,7 @@ const getCurrentUser = async () => {
 
 const ensureProfile = async (user: User) => {
   const now = new Date().toISOString()
+  const email = normalizeEmail(user.email ?? '') || null
   const existing = await client()
     .from('mirror_profiles')
     .select('*')
@@ -317,7 +334,7 @@ const ensureProfile = async (user: User) => {
   if (existing.data) {
     const updated = await client()
       .from('mirror_profiles')
-      .update({ last_login_at: now, updated_at: now })
+      .update({ email, last_login_at: now, updated_at: now })
       .eq('id', user.id)
       .select('*')
       .single<MirrorProfileRow>()
@@ -330,6 +347,7 @@ const ensureProfile = async (user: User) => {
     .from('mirror_profiles')
     .insert({
       id: user.id,
+      email,
       nickname,
       city: 'Unset',
       goal: 'Deep friend',
@@ -503,6 +521,23 @@ export const loginWithPassword = async (email: string, password: string) => {
   }
 }
 
+const profileToRecommendation = (row: MirrorProfileRow, myTraits: Record<string, number>, isSeed = false): ApiRecommendation => {
+  const peerTraits = row.traits ?? defaultTraits
+  const explanation = explainMatch(myTraits, peerTraits)
+  return {
+    id: row.id,
+    nickname: row.nickname,
+    city: row.city,
+    goal: row.goal,
+    score: scoreMatch(myTraits, peerTraits),
+    traits: peerTraits,
+    anchors: row.anchors?.length ? row.anchors : ['Deep explorer'],
+    intro: row.intro || 'Looking for a relationship that feels real and calm.',
+    is_seed: isSeed,
+    ...explanation,
+  }
+}
+
 export const registerWithInvite = async (email: string, inviteCode: string, password: string) => {
   const normalizedEmail = normalizeEmail(email)
   const normalizedInvite = assertInviteCode(inviteCode)
@@ -657,22 +692,7 @@ export const fetchRecommendations = async (token: string) => {
   if (peerResult.error) throw peerResult.error
 
   const myTraits = mineResult.data.traits ?? defaultTraits
-  const items = (peerResult.data ?? []).map<ApiRecommendation>((row) => {
-    const peerTraits = row.traits ?? defaultTraits
-    const explanation = explainMatch(myTraits, peerTraits)
-    return {
-      id: row.id,
-      nickname: row.nickname,
-      city: row.city,
-      goal: row.goal,
-      score: scoreMatch(myTraits, peerTraits),
-      traits: peerTraits,
-      anchors: row.anchors?.length ? row.anchors : ['Deep explorer'],
-      intro: row.intro || 'Looking for a relationship that feels real and calm.',
-      is_seed: false,
-      ...explanation,
-    }
-  })
+  const items = (peerResult.data ?? []).map<ApiRecommendation>((row) => profileToRecommendation(row, myTraits))
   return { items, score_version: 'supabase-v1' }
 }
 
@@ -770,6 +790,112 @@ export const startConversation = async (token: string, peerUserId: string) => {
   return { conversation_id: inserted.data.id }
 }
 
+export const fetchFriends = async (token: string) => {
+  if (!hasSupabase()) {
+    return request<{ items: ApiRecommendation[] }>('/friends', {}, token)
+  }
+
+  void token
+  const user = await getCurrentUser()
+  const mineResult = await client().from('mirror_profiles').select('*').eq('id', user.id).single<MirrorProfileRow>()
+  if (mineResult.error) throw mineResult.error
+  const friendsResult = await client()
+    .from('mirror_friends')
+    .select('*')
+    .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
+    .eq('status', 'accepted')
+    .order('updated_at', { ascending: false })
+    .returns<MirrorFriendRow[]>()
+  if (friendsResult.error) throw friendsResult.error
+
+  const peerIds = [
+    ...new Set(
+      (friendsResult.data ?? []).map((row) => (row.requester_id === user.id ? row.addressee_id : row.requester_id)),
+    ),
+  ]
+  if (!peerIds.length) return { items: [] }
+
+  const profilesResult = await client().from('mirror_profiles').select('*').in('id', peerIds).returns<MirrorProfileRow[]>()
+  if (profilesResult.error) throw profilesResult.error
+  const myTraits = mineResult.data.traits ?? defaultTraits
+  return { items: (profilesResult.data ?? []).map((row) => profileToRecommendation(row, myTraits)) }
+}
+
+export const searchFriendProfiles = async (token: string, query: string) => {
+  if (!hasSupabase()) {
+    return request<{ items: ApiRecommendation[] }>(`/friends/search?q=${encodeURIComponent(query)}`, {}, token)
+  }
+
+  void token
+  const user = await getCurrentUser()
+  const normalized = query.trim()
+  if (!normalized) return { items: [] }
+  const mineResult = await client().from('mirror_profiles').select('*').eq('id', user.id).single<MirrorProfileRow>()
+  if (mineResult.error) throw mineResult.error
+
+  const profileQuery = client().from('mirror_profiles').select('*').neq('id', user.id).eq('age_confirmed', true).limit(8)
+  const result = isUuid(normalized)
+    ? await profileQuery.eq('id', normalized).returns<MirrorProfileRow[]>()
+    : await profileQuery.eq('email', normalizeEmail(normalized)).returns<MirrorProfileRow[]>()
+  if (result.error) throw result.error
+
+  const myTraits = mineResult.data.traits ?? defaultTraits
+  return { items: (result.data ?? []).map((row) => profileToRecommendation(row, myTraits)) }
+}
+
+export const createFriendship = async (token: string, peerUserId: string) => {
+  if (!hasSupabase()) {
+    return request<ApiFriendResult>(
+      '/friends',
+      {
+        method: 'POST',
+        body: JSON.stringify({ peer_user_id: peerUserId }),
+      },
+      token,
+    )
+  }
+
+  void token
+  const user = await getCurrentUser()
+  if (peerUserId === user.id) throw new Error('cannot_add_self')
+
+  const mineResult = await client().from('mirror_profiles').select('*').eq('id', user.id).single<MirrorProfileRow>()
+  if (mineResult.error) throw mineResult.error
+  const peerResult = await client()
+    .from('mirror_profiles')
+    .select('*')
+    .eq('id', peerUserId)
+    .eq('age_confirmed', true)
+    .single<MirrorProfileRow>()
+  if (peerResult.error) throw peerResult.error
+
+  const existingResult = await client()
+    .from('mirror_friends')
+    .select('*')
+    .in('requester_id', [user.id, peerUserId])
+    .in('addressee_id', [user.id, peerUserId])
+    .maybeSingle<MirrorFriendRow>()
+  if (existingResult.error) throw existingResult.error
+
+  let friendship = existingResult.data
+  if (!friendship) {
+    const inserted = await client()
+      .from('mirror_friends')
+      .insert({ requester_id: user.id, addressee_id: peerUserId, status: 'accepted' })
+      .select('*')
+      .single<MirrorFriendRow>()
+    if (inserted.error) throw inserted.error
+    friendship = inserted.data
+  }
+
+  const conversation = await startConversation(token, peerUserId)
+  return {
+    friend: profileToRecommendation(peerResult.data, mineResult.data.traits ?? defaultTraits),
+    conversation_id: conversation.conversation_id,
+    friendship_id: friendship.id,
+  }
+}
+
 export const fetchConversationMessages = async (token: string, conversationId: string) => {
   if (!hasSupabase()) {
     return request<{ items: ApiMessage[] }>(`/conversations/${conversationId}/messages`, {}, token)
@@ -821,5 +947,8 @@ export const sendConversationMessage = async (token: string, conversationId: str
 }
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
+
+const isUuid = (value: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
 
 export const API_BASE_URL = hasSupabase() ? `${SUPABASE_URL}/rest/v1` : REST_API_BASE_URL

@@ -2,6 +2,7 @@ create extension if not exists pgcrypto;
 
 create table if not exists public.mirror_profiles (
   id uuid primary key references auth.users(id) on delete cascade,
+  email text,
   nickname text not null default '镜屿用户',
   city text not null default '未设定',
   goal text not null default '深度朋友',
@@ -20,12 +21,17 @@ create table if not exists public.mirror_profiles (
   last_login_at timestamptz
 );
 
+alter table public.mirror_profiles add column if not exists email text;
+create unique index if not exists mirror_profiles_email_unique_idx
+on public.mirror_profiles (lower(email))
+where email is not null and btrim(email) <> '';
+
 create table if not exists public.mirror_tree_posts (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   author text not null default '镜屿用户',
   visibility text not null default 'friends' check (visibility in ('private', 'friends', 'public')),
-  content text not null check (char_length(content) between 1 and 800),
+  content text not null check (char_length(content) between 1 and 4000),
   tags text[] not null default '{}',
   status text not null default 'approved' check (status in ('approved', 'pending', 'rejected')),
   moderation jsonb not null default '{}',
@@ -53,8 +59,47 @@ create table if not exists public.mirror_messages (
   created_at timestamptz not null default now()
 );
 
+do $$
+declare
+  constraint_name text;
+begin
+  select con.conname into constraint_name
+  from pg_constraint con
+  join pg_class rel on rel.oid = con.conrelid
+  join pg_namespace nsp on nsp.oid = rel.relnamespace
+  where nsp.nspname = 'public'
+    and rel.relname = 'mirror_tree_posts'
+    and con.contype = 'c'
+    and pg_get_constraintdef(con.oid) like '%char_length(content)%'
+  limit 1;
+
+  if constraint_name is not null then
+    execute format('alter table public.mirror_tree_posts drop constraint %I', constraint_name);
+  end if;
+
+  alter table public.mirror_tree_posts
+    add constraint mirror_tree_posts_content_length check (char_length(content) between 1 and 4000);
+end $$;
+
+create table if not exists public.mirror_friends (
+  id uuid primary key default gen_random_uuid(),
+  requester_id uuid not null references auth.users(id) on delete cascade,
+  addressee_id uuid not null references auth.users(id) on delete cascade,
+  status text not null default 'accepted' check (status in ('pending', 'accepted', 'blocked')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint mirror_friends_distinct_users check (requester_id <> addressee_id)
+);
+
 create index if not exists mirror_tree_posts_created_at_idx on public.mirror_tree_posts (created_at desc);
 create index if not exists mirror_messages_conversation_created_idx on public.mirror_messages (conversation_id, created_at);
+create index if not exists mirror_friends_requester_idx on public.mirror_friends (requester_id);
+create index if not exists mirror_friends_addressee_idx on public.mirror_friends (addressee_id);
+create unique index if not exists mirror_friends_unique_pair_idx
+on public.mirror_friends (
+  least(requester_id, addressee_id),
+  greatest(requester_id, addressee_id)
+);
 
 create or replace function public.mirror_content_moderation(content text)
 returns jsonb
@@ -141,6 +186,7 @@ alter table public.mirror_profiles enable row level security;
 alter table public.mirror_tree_posts enable row level security;
 alter table public.mirror_conversations enable row level security;
 alter table public.mirror_messages enable row level security;
+alter table public.mirror_friends enable row level security;
 
 drop policy if exists "profiles can be read by beta users" on public.mirror_profiles;
 create policy "profiles can be read by beta users"
@@ -226,3 +272,25 @@ with check (
       and (c.user_a = auth.uid() or c.user_b = auth.uid())
   )
 );
+
+drop policy if exists "friend members can read friendships" on public.mirror_friends;
+create policy "friend members can read friendships"
+on public.mirror_friends
+for select
+to authenticated
+using (auth.uid() = requester_id or auth.uid() = addressee_id);
+
+drop policy if exists "users can create friendships" on public.mirror_friends;
+create policy "users can create friendships"
+on public.mirror_friends
+for insert
+to authenticated
+with check (auth.uid() = requester_id);
+
+drop policy if exists "friend members can update friendships" on public.mirror_friends;
+create policy "friend members can update friendships"
+on public.mirror_friends
+for update
+to authenticated
+using (auth.uid() = requester_id or auth.uid() = addressee_id)
+with check (auth.uid() = requester_id or auth.uid() = addressee_id);
