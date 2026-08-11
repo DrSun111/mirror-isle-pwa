@@ -4,9 +4,11 @@ import { Browser } from '@capacitor/browser'
 import type { LucideIcon } from 'lucide-react'
 import {
   Award,
+  ArrowLeft,
   BadgeCheck,
   Bookmark,
   BookOpen,
+  Camera,
   ChevronRight,
   CircleAlert,
   CircleCheck,
@@ -15,6 +17,7 @@ import {
   Download,
   Heart,
   House,
+  ImagePlus,
   Landmark,
   Leaf,
   MessageCircle,
@@ -56,13 +59,13 @@ type Screen = 'welcome' | 'profile' | 'assessment' | 'app'
 type AuthMode = 'login' | 'register'
 type TabKey = 'meet' | 'tree' | 'growth' | 'messages' | 'me'
 type GrowthPanel = 'home' | 'path' | 'reading' | 'practice' | 'discussion' | 'fellows'
-type MePanel = 'home' | 'saved' | 'privacy' | 'theme'
+type MePanel = 'home' | 'saved' | 'privacy' | 'theme' | 'edit'
 type ThemeKey = 'botanical' | 'starlight' | 'sunset' | 'sky' | 'custom'
 type RelationGoal = '亲密关系' | '深度朋友' | '成长伙伴'
 type PrivacyLevel = 'private' | 'friends' | 'public'
 type DimensionKey = 'values' | 'lifestyle' | 'relationship' | 'communication' | 'growth' | 'boundary'
 
-const APP_VERSION = '0.12.2'
+const APP_VERSION = '0.12.3'
 const RELEASES_API_URL = 'https://api.github.com/repos/DrSun111/mirror-isle-pwa/releases/latest'
 const RELEASES_PAGE_URL = 'https://github.com/DrSun111/mirror-isle-pwa/releases/latest'
 
@@ -77,8 +80,31 @@ interface RegistrationDraft {
   city: string
   goal: RelationGoal
   privacy: PrivacyLevel
+  schedule: string
+  diet: string
+  favoriteBooks: string
+  favoriteMovies: string
+  intro: string
+  mbti: MbtiProfile
   ageConfirmed: boolean
   agreement: boolean
+}
+
+interface MbtiProfile {
+  energy: number
+  information: number
+  decision: number
+  lifestyle: number
+}
+
+interface PublicProfileDetails {
+  avatar?: string
+  schedule?: string
+  diet?: string
+  favoriteBooks?: string
+  favoriteMovies?: string
+  intro?: string
+  mbti?: MbtiProfile
 }
 
 interface Traits extends Record<DimensionKey, number> {
@@ -95,8 +121,9 @@ interface Profile {
   goal: RelationGoal
   privacy: PrivacyLevel
   identityStatus?: string
+  publicProfile: PublicProfileDetails
   traits: Traits
-  answers: Record<string, string>
+  answers: Record<string, unknown>
   createdAt: string
 }
 
@@ -129,6 +156,7 @@ interface Candidate {
   confidence: string
   avatar: string
   mood: string
+  publicProfile?: PublicProfileDetails
   tags: string[]
   intro: string
   dimensions: Record<DimensionKey, number>
@@ -149,6 +177,7 @@ interface TreePost {
   hugs: number
   experienced: number
   chats: number
+  images?: string[]
 }
 
 interface ChatMessage {
@@ -177,9 +206,25 @@ const defaultDraft: RegistrationDraft = {
   city: '上海',
   goal: '深度朋友',
   privacy: 'friends',
+  schedule: '偏夜型，晚上更有表达欲',
+  diet: '清淡为主，偶尔探索新口味',
+  favoriteBooks: '',
+  favoriteMovies: '',
+  intro: '希望遇见真实、安静、能慢慢靠近的关系。',
+  mbti: { energy: 42, information: 58, decision: 48, lifestyle: 46 },
   ageConfirmed: false,
   agreement: false,
 }
+
+const mbtiAxes = [
+  { key: 'energy', left: '内向 I', right: '外向 E', title: '能量来源' },
+  { key: 'information', left: '实感 S', right: '直觉 N', title: '信息接收' },
+  { key: 'decision', left: '理性 T', right: '感受 F', title: '判断方式' },
+  { key: 'lifestyle', left: '计划 J', right: '弹性 P', title: '生活方式' },
+] as const
+
+const scheduleOptions = ['清晨型', '白天稳定型', '偏夜型', '弹性作息']
+const dietOptions = ['清淡为主', '无辣不欢', '素食/轻食', '喜欢探索新口味']
 
 const dimensionMeta: Array<{
   key: DimensionKey
@@ -470,7 +515,7 @@ const candidates: Candidate[] = [
     name: '山脉与海',
     age: 26,
     city: '杭州',
-    type: 'INFJ',
+    type: '安静共鸣型',
     goal: '深度朋友',
     score: 92,
     confidence: '中高',
@@ -493,7 +538,7 @@ const candidates: Candidate[] = [
     name: '时与风',
     age: 28,
     city: '上海',
-    type: 'ENTJ',
+    type: '行动成长型',
     goal: '成长伙伴',
     score: 88,
     confidence: '中',
@@ -516,7 +561,7 @@ const candidates: Candidate[] = [
     name: '晚星',
     age: 24,
     city: '成都',
-    type: 'INFP',
+    type: '温柔表达型',
     goal: '亲密关系',
     score: 85,
     confidence: '中',
@@ -630,10 +675,12 @@ function App() {
   const [profile, setProfile] = useStoredState<Profile | null>('mirror-isle:profile', null)
   const [authToken, setAuthToken] = useStoredState<string | null>('mirror-isle:auth-token', null)
   const [treePosts, setTreePosts] = useStoredState<TreePost[]>('mirror-isle:tree-posts', seedTreePosts)
+  const [postImages, setPostImages] = useStoredState<Record<string, string[]>>('mirror-isle:post-images', {})
   const [chatMessages, setChatMessages] = useStoredState<ChatMessage[]>('mirror-isle:messages', startingMessages)
   const [localConversations, setLocalConversations] = useStoredState<Record<string, ChatMessage[]>>('mirror-isle:local-conversations', {})
   const [conversationPreviews, setConversationPreviews] = useStoredState<Record<string, ConversationPreview>>('mirror-isle:conversation-previews', {})
   const [readMessageIds, setReadMessageIds] = useStoredState<Record<string, string>>('mirror-isle:read-message-ids', {})
+  const [activeMessagePeerId, setActiveMessagePeerId] = useStoredState<string | null>('mirror-isle:active-message-peer', null)
   const [selectedCandidateId, setSelectedCandidateId] = useStoredState('mirror-isle:selected', candidates[0].id)
   const [questionIndex, setQuestionIndex] = useStoredState('mirror-isle:question-index', 0)
   const [friendIds, setFriendIds] = useStoredState<string[]>('mirror-isle:friends', [])
@@ -701,7 +748,12 @@ function App() {
         setRemoteCandidates(recommendationResult.items.map(mapApiRecommendation))
       }
       if (treeResult.items.length) {
-        setTreePosts(treeResult.items.map(mapApiTreePost))
+        setTreePosts(
+          treeResult.items.map(mapApiTreePost).map((post) => ({
+            ...post,
+            images: postImages[post.id] ?? post.images,
+          })),
+        )
       }
       const nextFriends = friendResult.items.map(mapApiRecommendation)
       setRemoteFriends(nextFriends)
@@ -751,6 +803,12 @@ function App() {
         city: nextProfile.city,
         goal: nextProfile.goal,
         privacy: nextProfile.privacy,
+        schedule: nextProfile.publicProfile.schedule ?? current.schedule,
+        diet: nextProfile.publicProfile.diet ?? current.diet,
+        favoriteBooks: nextProfile.publicProfile.favoriteBooks ?? current.favoriteBooks,
+        favoriteMovies: nextProfile.publicProfile.favoriteMovies ?? current.favoriteMovies,
+        intro: nextProfile.publicProfile.intro ?? current.intro,
+        mbti: nextProfile.publicProfile.mbti ?? current.mbti,
       }))
       setBackendState('online')
       void syncBackendData(login.token)
@@ -786,14 +844,29 @@ function App() {
       return
     }
     try {
+      const publicProfile = publicProfileFromDraft(draft)
       const result = await updateMe(authToken, {
         nickname: draft.nickname.trim(),
         city: draft.city.trim(),
         goal: draft.goal,
         privacy: 'friends',
         age_confirmed: true,
+        public_profile: publicProfile as Record<string, unknown>,
+        intro: publicProfile.intro,
       })
       setApiUser(result.user)
+      setProfile((current) =>
+        current
+          ? {
+              ...current,
+              avatar: publicProfile.avatar ?? current.avatar,
+              nickname: draft.nickname.trim(),
+              city: draft.city.trim(),
+              goal: draft.goal,
+              publicProfile,
+            }
+          : current,
+      )
       setBackendState('online')
     } catch {
       setBackendState('offline')
@@ -839,6 +912,7 @@ function App() {
       goal: draft.goal,
       privacy: 'friends',
       identityStatus: apiUser?.identity_status ?? profile?.identityStatus ?? 'unsubmitted',
+      publicProfile: publicProfileFromDraft(draft),
       traits: remoteTraits,
       answers: nextAnswers,
       createdAt: profile?.createdAt ?? new Date().toISOString(),
@@ -856,9 +930,11 @@ function App() {
     window.localStorage.removeItem('mirror-isle:draft')
     window.localStorage.removeItem('mirror-isle:question-index')
     window.localStorage.removeItem('mirror-isle:messages')
+    window.localStorage.removeItem('mirror-isle:post-images')
     window.localStorage.removeItem('mirror-isle:local-conversations')
     window.localStorage.removeItem('mirror-isle:conversation-previews')
     window.localStorage.removeItem('mirror-isle:read-message-ids')
+    window.localStorage.removeItem('mirror-isle:active-message-peer')
     window.localStorage.removeItem('mirror-isle:tree-posts')
     window.localStorage.removeItem('mirror-isle:conversation-ids')
     window.localStorage.removeItem('mirror-isle:saved-reports')
@@ -873,9 +949,11 @@ function App() {
     setAnswers({})
     setQuestionIndex(0)
     setChatMessages(startingMessages)
+    setPostImages({})
     setLocalConversations({})
     setConversationPreviews({})
     setReadMessageIds({})
+    setActiveMessagePeerId(null)
     setTreePosts(seedTreePosts)
     setRemoteCandidates(null)
     setRemoteFriends([])
@@ -887,13 +965,37 @@ function App() {
     showToast('体验数据已重置')
   }
 
-  const publishTreePost = async (content: string, visibility: PrivacyLevel, tags: string[]) => {
+  const publishTreePost = async (content: string, visibility: PrivacyLevel, tags: string[], images: string[] = []) => {
     if (!authToken) {
       showToast('请先完成内测登录')
       return
     }
     const result = await createTreePost(authToken, content, visibility, tags)
+    if (images.length) {
+      setPostImages((current) => ({ ...current, [result.id]: images }))
+    }
     await syncBackendData(authToken)
+    if (images.length && profile) {
+      setTreePosts((current) => {
+        const existingPost = current.find((post) => post.id === result.id)
+        const nextPost: TreePost = existingPost
+          ? { ...existingPost, images }
+          : {
+              id: result.id,
+              author: profile.nickname,
+              time: '刚刚',
+              visibility,
+              content,
+              tags,
+              resonance: 0,
+              hugs: 0,
+              experienced: 0,
+              chats: 0,
+              images,
+            }
+        return [nextPost, ...current.filter((post) => post.id !== result.id)]
+      })
+    }
     showToast(result.status === 'approved' ? '树洞已发布' : '树洞已进入审核')
   }
 
@@ -1105,6 +1207,7 @@ function App() {
       setFriendIds([...new Set([...friendIds, candidateId])])
     }
     setSelectedCandidateId(candidateId)
+    setActiveMessagePeerId(candidateId)
     setActiveTab('messages')
     showToast(friendIds.includes(candidateId) ? '已进入朋友对话' : '已添加朋友')
   }
@@ -1122,6 +1225,54 @@ function App() {
       showToast('没有找到可添加的用户')
       return []
     }
+  }
+
+  const saveProfileDetails = async (
+    nickname: string,
+    city: string,
+    goal: RelationGoal,
+    publicProfile: PublicProfileDetails,
+  ) => {
+    if (!authToken || !profile) {
+      showToast('请先完成内测登录')
+      return
+    }
+    const cleanProfile = {
+      ...publicProfile,
+      intro: publicProfile.intro?.trim() || '希望遇见真实、安静、能慢慢靠近的关系。',
+    }
+    const result = await updateMe(authToken, {
+      nickname: nickname.trim(),
+      city: city.trim(),
+      goal,
+      privacy: profile.privacy,
+      age_confirmed: true,
+      public_profile: cleanProfile as Record<string, unknown>,
+      intro: cleanProfile.intro,
+    })
+    setApiUser(result.user)
+    setProfile({
+      ...profile,
+      nickname: nickname.trim(),
+      city: city.trim(),
+      goal,
+      avatar: cleanProfile.avatar ?? profile.avatar,
+      publicProfile: cleanProfile,
+    })
+    setDraft((current) => ({
+      ...current,
+      avatar: cleanProfile.avatar ?? current.avatar,
+      nickname: nickname.trim(),
+      city: city.trim(),
+      goal,
+      schedule: cleanProfile.schedule ?? current.schedule,
+      diet: cleanProfile.diet ?? current.diet,
+      favoriteBooks: cleanProfile.favoriteBooks ?? '',
+      favoriteMovies: cleanProfile.favoriteMovies ?? '',
+      intro: cleanProfile.intro ?? current.intro,
+      mbti: cleanProfile.mbti ?? current.mbti,
+    }))
+    showToast('资料已更新')
   }
 
   const checkForUpdate = useCallback(async (options: { silentWhenLatest?: boolean } = {}) => {
@@ -1159,13 +1310,13 @@ function App() {
   }, [authToken, checkForUpdate, screen])
 
   useEffect(() => {
-    if (screen !== 'app' || activeTab !== 'messages' || !selectedCandidate || !authToken) return
-    void syncConversationMessages(selectedCandidate.id)
+    if (screen !== 'app' || activeTab !== 'messages' || !activeMessagePeerId || !authToken) return
+    void syncConversationMessages(activeMessagePeerId)
     const timer = window.setInterval(() => {
-      void syncConversationMessages(selectedCandidate.id)
+      void syncConversationMessages(activeMessagePeerId)
     }, 8000)
     return () => window.clearInterval(timer)
-  }, [activeTab, authToken, screen, selectedCandidate, syncConversationMessages])
+  }, [activeMessagePeerId, activeTab, authToken, screen, syncConversationMessages])
 
   useEffect(() => {
     if (screen !== 'app' || !authToken || !friendCandidates.length) return
@@ -1233,12 +1384,14 @@ function App() {
           treePosts={treePosts}
           chatMessages={chatMessages}
           conversationPreviews={conversationPreviews}
+          activeMessagePeerId={activeMessagePeerId}
           friendIds={friendIds}
           themeKey={themeKey}
           customAccent={customAccent}
           setActiveTab={setActiveTab}
           setSelectedCandidateId={setSelectedCandidateId}
           setTreePosts={setTreePosts}
+          setActiveMessagePeerId={setActiveMessagePeerId}
           setThemeKey={setThemeKey}
           setCustomAccent={setCustomAccent}
           onCreateTreePost={publishTreePost}
@@ -1247,6 +1400,7 @@ function App() {
           onAddFriend={addFriend}
           onSearchFriends={searchFriends}
           onCheckUpdate={checkForUpdate}
+          onSaveProfile={saveProfileDetails}
           onSubmitIdentity={submitRealIdentity}
           onReset={resetDemo}
           onRetake={() => {
@@ -1379,6 +1533,28 @@ function ProfileSetupScreen({
 
         <div className="setup-form">
           <FieldGroup label="头像">
+            <div className="avatar-uploader">
+              <AvatarMark label={draft.avatar || draft.nickname || '你'} size="large" />
+              <label className="image-action">
+                <Camera size={16} />
+                上传头像
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={async (event) => {
+                    const file = event.target.files?.[0]
+                    if (!file) return
+                    try {
+                      const image = await readImageFile(file)
+                      setDraft((current) => ({ ...current, avatar: image }))
+                    } catch {
+                      setDraft((current) => current)
+                    }
+                    event.target.value = ''
+                  }}
+                />
+              </label>
+            </div>
             <div className="avatar-picker">
               {avatarOptions.map((avatar) => (
                 <button
@@ -1410,6 +1586,20 @@ function ProfileSetupScreen({
               placeholder="上海"
             />
           </label>
+          <FieldGroup label="作息时间">
+            <SegmentedControl
+              value={draft.schedule}
+              options={scheduleOptions}
+              onChange={(value) => setDraft((current) => ({ ...current, schedule: value }))}
+            />
+          </FieldGroup>
+          <FieldGroup label="饮食偏好">
+            <SegmentedControl
+              value={draft.diet}
+              options={dietOptions}
+              onChange={(value) => setDraft((current) => ({ ...current, diet: value }))}
+            />
+          </FieldGroup>
           <FieldGroup label="当前关系目的">
             <SegmentedControl
               value={draft.goal}
@@ -1417,6 +1607,58 @@ function ProfileSetupScreen({
               onChange={(value) => setDraft((current) => ({ ...current, goal: value as RelationGoal }))}
             />
           </FieldGroup>
+          <FieldGroup label={`MBTI 倾向 ${mbtiCode(draft.mbti)}`}>
+            <div className="mbti-slider-list">
+              {mbtiAxes.map((axis) => (
+                <label className="mbti-slider" key={axis.key}>
+                  <span>
+                    <strong>{axis.title}</strong>
+                    <small>{mbtiAxisText(draft.mbti[axis.key], axis.left, axis.right)}</small>
+                  </span>
+                  <div>
+                    <em>{axis.left}</em>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={draft.mbti[axis.key]}
+                      onChange={(event) =>
+                        setDraft((current) => ({
+                          ...current,
+                          mbti: { ...current.mbti, [axis.key]: Number(event.target.value) },
+                        }))
+                      }
+                    />
+                    <em>{axis.right}</em>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </FieldGroup>
+          <label>
+            <span>喜欢的书</span>
+            <input
+              value={draft.favoriteBooks}
+              onChange={(event) => setDraft((current) => ({ ...current, favoriteBooks: event.target.value }))}
+              placeholder="例如：被讨厌的勇气、悉达多"
+            />
+          </label>
+          <label>
+            <span>喜欢的电影</span>
+            <input
+              value={draft.favoriteMovies}
+              onChange={(event) => setDraft((current) => ({ ...current, favoriteMovies: event.target.value }))}
+              placeholder="例如：海街日记、花样年华"
+            />
+          </label>
+          <label>
+            <span>一句介绍</span>
+            <textarea
+              value={draft.intro}
+              onChange={(event) => setDraft((current) => ({ ...current, intro: event.target.value }))}
+              placeholder="让别人知道怎样靠近你"
+            />
+          </label>
 
           <label className="check-line">
             <input
@@ -1585,12 +1827,14 @@ function AppShell({
   treePosts,
   chatMessages,
   conversationPreviews,
+  activeMessagePeerId,
   friendIds,
   themeKey,
   customAccent,
   setActiveTab,
   setSelectedCandidateId,
   setTreePosts,
+  setActiveMessagePeerId,
   setThemeKey,
   setCustomAccent,
   onCreateTreePost,
@@ -1599,6 +1843,7 @@ function AppShell({
   onAddFriend,
   onSearchFriends,
   onCheckUpdate,
+  onSaveProfile,
   onSubmitIdentity,
   onReset,
   onRetake,
@@ -1612,20 +1857,28 @@ function AppShell({
   treePosts: TreePost[]
   chatMessages: ChatMessage[]
   conversationPreviews: Record<string, ConversationPreview>
+  activeMessagePeerId: string | null
   friendIds: string[]
   themeKey: ThemeKey
   customAccent: string
   setActiveTab: Dispatch<SetStateAction<TabKey>>
   setSelectedCandidateId: Dispatch<SetStateAction<string>>
   setTreePosts: Dispatch<SetStateAction<TreePost[]>>
+  setActiveMessagePeerId: Dispatch<SetStateAction<string | null>>
   setThemeKey: Dispatch<SetStateAction<ThemeKey>>
   setCustomAccent: Dispatch<SetStateAction<string>>
-  onCreateTreePost: (content: string, visibility: PrivacyLevel, tags: string[]) => Promise<void>
+  onCreateTreePost: (content: string, visibility: PrivacyLevel, tags: string[], images?: string[]) => Promise<void>
   onCreateArticle: (title: string, content: string) => Promise<void>
   onSendMessage: (candidateId: string, content: string) => Promise<void>
   onAddFriend: (candidateId: string) => Promise<void>
   onSearchFriends: (query: string) => Promise<Array<Candidate & { liveScore: number }>>
   onCheckUpdate: () => Promise<void>
+  onSaveProfile: (
+    nickname: string,
+    city: string,
+    goal: RelationGoal,
+    publicProfile: PublicProfileDetails,
+  ) => Promise<void>
   onSubmitIdentity: (realName: string, idNumber: string) => Promise<void>
   onReset: () => void
   onRetake: () => void
@@ -1723,6 +1976,7 @@ function AppShell({
               onBack={() => setShowGraph(false)}
               onChat={() => {
                 setShowGraph(false)
+                setActiveMessagePeerId(selectedCandidate.id)
                 setActiveTab('messages')
               }}
               onAddFriend={() => {
@@ -1748,6 +2002,7 @@ function AppShell({
                   onAddFriend={onAddFriend}
                   onChat={(candidateId) => {
                     setSelectedCandidateId(candidateId)
+                    setActiveMessagePeerId(candidateId)
                     setActiveTab('messages')
                   }}
                 />
@@ -1778,7 +2033,12 @@ function AppShell({
                   friends={friendCandidates}
                   messages={chatMessages}
                   conversationPreviews={conversationPreviews}
-                  onSelectFriend={(candidateId) => setSelectedCandidateId(candidateId)}
+                  activePeerId={activeMessagePeerId}
+                  onOpenChat={(candidateId) => {
+                    setSelectedCandidateId(candidateId)
+                    setActiveMessagePeerId(candidateId)
+                  }}
+                  onBackToList={() => setActiveMessagePeerId(null)}
                   onAddFriend={onAddFriend}
                   onSearchFriends={onSearchFriends}
                   onSendMessage={onSendMessage}
@@ -1799,6 +2059,7 @@ function AppShell({
                   onReset={onReset}
                   onRetake={onRetake}
                   onCheckUpdate={onCheckUpdate}
+                  onSaveProfile={onSaveProfile}
                   onSubmitIdentity={onSubmitIdentity}
                   onToast={onToast}
                 />
@@ -1813,7 +2074,10 @@ function AppShell({
               <button
                 key={key}
                 className={activeTab === key ? 'active' : ''}
-                onClick={() => setActiveTab(key)}
+                onClick={() => {
+                  if (key === 'messages') setActiveMessagePeerId(null)
+                  setActiveTab(key)
+                }}
               >
                 <Icon size={21} />
                 <span>{label}</span>
@@ -1978,6 +2242,20 @@ function RelationshipGraph({
 
       <RelationRadar profile={profile} candidate={candidate} />
 
+      <section className="public-profile-card">
+        <div>
+          <strong>{candidate.name} 的公开资料</strong>
+          <span>{candidate.publicProfile?.intro ?? candidate.intro}</span>
+        </div>
+        <div className="public-profile-grid">
+          <span>MBTI：{mbtiCode(candidate.publicProfile?.mbti)}</span>
+          <span>作息：{candidate.publicProfile?.schedule ?? '未填写'}</span>
+          <span>饮食：{candidate.publicProfile?.diet ?? '未填写'}</span>
+          <span>书籍：{candidate.publicProfile?.favoriteBooks || '未填写'}</span>
+          <span>电影：{candidate.publicProfile?.favoriteMovies || '未填写'}</span>
+        </div>
+      </section>
+
       <div className="graph-columns">
         <InsightCard title="你们相似的地方" icon={Leaf} items={candidate.similar} tone="sage" />
         <InsightCard title="有趣的不同" icon={Sparkles} items={candidate.different} tone="blue" />
@@ -2022,16 +2300,18 @@ function TreePage({
   profile: Profile
   posts: TreePost[]
   setPosts: Dispatch<SetStateAction<TreePost[]>>
-  onCreatePost: (content: string, visibility: PrivacyLevel, tags: string[]) => Promise<void>
+  onCreatePost: (content: string, visibility: PrivacyLevel, tags: string[], images?: string[]) => Promise<void>
   onToast: (message: string) => void
 }) {
   const [visibility, setVisibility] = useState<PrivacyLevel>(profile.privacy)
   const [draft, setDraft] = useState('')
+  const [images, setImages] = useState<string[]>([])
 
   const publishPost = async () => {
     if (!draft.trim()) return
-    await onCreatePost(draft.trim(), visibility, ['此刻', visibilityLabel(visibility)])
+    await onCreatePost(draft.trim(), visibility, ['此刻', visibilityLabel(visibility)], images)
     setDraft('')
+    setImages([])
     onToast('树洞已记录')
   }
 
@@ -2059,6 +2339,36 @@ function TreePage({
           onChange={(event) => setDraft(event.target.value)}
           placeholder="写下这一刻的心情..."
         />
+        <div className="post-tools">
+          <label className="image-action">
+            <ImagePlus size={16} />
+            插入图片
+            <input
+              type="file"
+              accept="image/*"
+              onChange={async (event) => {
+                const file = event.target.files?.[0]
+                if (!file) return
+                try {
+                  const image = await readImageFile(file)
+                  setImages((current) => [...current, image].slice(0, 3))
+                } catch {
+                  onToast('图片过大或无法读取')
+                }
+                event.target.value = ''
+              }}
+            />
+          </label>
+          {images.length > 0 && (
+            <div className="image-preview-row">
+              {images.map((image, index) => (
+                <button key={`${image}-${index}`} type="button" onClick={() => setImages(images.filter((_, itemIndex) => itemIndex !== index))}>
+                  <img src={image} alt="待发布图片" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <button className="primary-button full" onClick={publishPost}>
           <Plus size={18} />
           写一写
@@ -2075,6 +2385,13 @@ function TreePage({
             </div>
           </header>
           <p>{post.content}</p>
+          {post.images?.length ? (
+            <div className="post-image-grid">
+              {post.images.map((image, index) => (
+                <img src={image} alt="帖子图片" key={`${post.id}-${index}`} />
+              ))}
+            </div>
+          ) : null}
           <div className="tag-row">
             {post.tags.map((tag, index) => (
               <span key={`${tag}-${index}`}>{tag}</span>
@@ -2332,7 +2649,9 @@ function MessagesPage({
   friends,
   messages,
   conversationPreviews,
-  onSelectFriend,
+  activePeerId,
+  onOpenChat,
+  onBackToList,
   onAddFriend,
   onSearchFriends,
   onSendMessage,
@@ -2342,7 +2661,9 @@ function MessagesPage({
   friends: Array<Candidate & { liveScore: number }>
   messages: ChatMessage[]
   conversationPreviews: Record<string, ConversationPreview>
-  onSelectFriend: (candidateId: string) => void
+  activePeerId: string | null
+  onOpenChat: (candidateId: string) => void
+  onBackToList: () => void
   onAddFriend: (candidateId: string) => Promise<void>
   onSearchFriends: (query: string) => Promise<Array<Candidate & { liveScore: number }>>
   onSendMessage: (candidateId: string, content: string) => Promise<void>
@@ -2352,19 +2673,20 @@ function MessagesPage({
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Array<Candidate & { liveScore: number }>>([])
   const [isSearching, setIsSearching] = useState(false)
+  const activeFriend = friends.find((friend) => friend.id === activePeerId) ?? (activePeerId ? candidate : null)
   const conversations = useMemo(
     () =>
       friends
         .map((friend) => ({ friend, preview: conversationPreviews[friend.id] }))
-        .filter(({ friend, preview }) => friend.id === candidate.id || Boolean(preview?.lastText))
+        .filter(({ friend, preview }) => friend.id === activePeerId || Boolean(preview?.lastText))
         .sort((a, b) => new Date(b.preview?.lastAt || 0).getTime() - new Date(a.preview?.lastAt || 0).getTime()),
-    [candidate.id, conversationPreviews, friends],
+    [activePeerId, conversationPreviews, friends],
   )
 
   const sendMessage = async () => {
-    if (!draft.trim()) return
+    if (!draft.trim() || !activeFriend) return
     const content = draft.trim()
-    await onSendMessage(candidate.id, content)
+    await onSendMessage(activeFriend.id, content)
     setDraft('')
   }
 
@@ -2382,8 +2704,60 @@ function MessagesPage({
     }
   }
 
+  if (activeFriend) {
+    return (
+      <div className="chat-page solo">
+        <header className="chat-head">
+          <button className="icon-button" onClick={onBackToList} aria-label="返回消息">
+            <ArrowLeft size={20} />
+          </button>
+          <AvatarMark label={activeFriend.avatar} />
+          <div>
+            <strong>{activeFriend.name}</strong>
+            <small>{activeFriend.type} · {activeFriend.liveScore}% 契合</small>
+          </div>
+          <button className="ghost-button" onClick={onOpenGraph}>
+            资料
+          </button>
+        </header>
+
+        <div className="peer-profile-strip">
+          <span>{mbtiCode(activeFriend.publicProfile?.mbti)}</span>
+          <span>{activeFriend.publicProfile?.schedule ?? activeFriend.city}</span>
+          <span>{activeFriend.publicProfile?.diet ?? activeFriend.goal}</span>
+        </div>
+
+        <div className="message-list">
+          {messages.length ? (
+            messages.map((message) => (
+              <div key={message.id} className={message.from === 'me' ? 'message mine' : 'message'}>
+                {message.text}
+              </div>
+            ))
+          ) : (
+            <div className="compact-empty">还没有消息，发出第一句问候。</div>
+          )}
+        </div>
+
+        <label className="chat-input">
+          <input
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') void sendMessage()
+            }}
+            placeholder="输入消息"
+          />
+          <button onClick={() => void sendMessage()} aria-label="发送消息">
+            <Send size={18} />
+          </button>
+        </label>
+      </div>
+    )
+  }
+
   return (
-    <div className="messages-page">
+    <div className="messages-page list-only">
       <section className="conversation-panel message-section">
         <div className="conversation-title">
           <strong>会话</strong>
@@ -2397,8 +2771,8 @@ function MessagesPage({
               return (
                 <button
                   key={friend.id}
-                  className={friend.id === candidate.id ? 'friend-row active' : 'friend-row'}
-                  onClick={() => onSelectFriend(friend.id)}
+                  className={friend.id === activePeerId ? 'friend-row active' : 'friend-row'}
+                  onClick={() => onOpenChat(friend.id)}
                 >
                   <AvatarMark label={friend.avatar} />
                   <span>
@@ -2427,7 +2801,7 @@ function MessagesPage({
             onKeyDown={(event) => {
               if (event.key === 'Enter') void search()
             }}
-            placeholder="邮箱或用户 ID"
+            placeholder="邮箱或用户编号"
           />
           <button onClick={() => void search()} disabled={isSearching}>
             {isSearching ? '搜索中' : '搜索'}
@@ -2439,7 +2813,7 @@ function MessagesPage({
             {results.map((item) => (
               <article className="friend-row" key={item.id}>
                 <AvatarMark label={item.avatar} />
-                <button type="button" onClick={() => onSelectFriend(item.id)}>
+                <button type="button" onClick={() => onOpenChat(item.id)}>
                   <strong>{item.name}</strong>
                   <small>{item.city} · {item.liveScore}%</small>
                 </button>
@@ -2458,8 +2832,8 @@ function MessagesPage({
               return (
                 <button
                   key={friend.id}
-                  className={friend.id === candidate.id ? 'friend-row active' : 'friend-row'}
-                  onClick={() => onSelectFriend(friend.id)}
+                  className={friend.id === activePeerId ? 'friend-row active' : 'friend-row'}
+                  onClick={() => onOpenChat(friend.id)}
                 >
                   <AvatarMark label={friend.avatar} />
                   <span>
@@ -2471,45 +2845,11 @@ function MessagesPage({
               )
             })
           ) : (
-            <div className="compact-empty">搜索邮箱或用户 ID 添加好友</div>
+            <div className="compact-empty">搜索邮箱或用户编号添加好友</div>
           )}
         </div>
       </section>
 
-      <section className="chat-page">
-        <header className="chat-head">
-          <AvatarMark label={candidate.avatar} />
-          <div>
-            <strong>{candidate.name}</strong>
-            <small>{candidate.liveScore}% 契合</small>
-          </div>
-          <button className="ghost-button" onClick={onOpenGraph}>
-            图谱
-          </button>
-        </header>
-
-        <div className="message-list">
-          {messages.map((message) => (
-            <div key={message.id} className={message.from === 'me' ? 'message mine' : 'message'}>
-              {message.text}
-            </div>
-          ))}
-        </div>
-
-        <label className="chat-input">
-          <input
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') sendMessage()
-            }}
-            placeholder="输入消息"
-          />
-          <button onClick={sendMessage} aria-label="发送消息">
-            <Send size={18} />
-          </button>
-        </label>
-      </section>
     </div>
   )
 }
@@ -2527,6 +2867,7 @@ function MePage({
   onReset,
   onRetake,
   onCheckUpdate,
+  onSaveProfile,
   onSubmitIdentity,
   onToast,
 }: {
@@ -2542,6 +2883,12 @@ function MePage({
   onReset: () => void
   onRetake: () => void
   onCheckUpdate: () => Promise<void>
+  onSaveProfile: (
+    nickname: string,
+    city: string,
+    goal: RelationGoal,
+    publicProfile: PublicProfileDetails,
+  ) => Promise<void>
   onSubmitIdentity: (realName: string, idNumber: string) => Promise<void>
   onToast: (message: string) => void
 }) {
@@ -2553,23 +2900,51 @@ function MePage({
     messageNotice: true,
     safeMode: true,
   })
+  const [editNickname, setEditNickname] = useState(profile.nickname)
+  const [editCity, setEditCity] = useState(profile.city)
+  const [editGoal, setEditGoal] = useState<RelationGoal>(profile.goal)
+  const [editPublicProfile, setEditPublicProfile] = useState<PublicProfileDetails>({
+    avatar: profile.avatar,
+    schedule: profile.publicProfile.schedule ?? defaultDraft.schedule,
+    diet: profile.publicProfile.diet ?? defaultDraft.diet,
+    favoriteBooks: profile.publicProfile.favoriteBooks ?? '',
+    favoriteMovies: profile.publicProfile.favoriteMovies ?? '',
+    intro: profile.publicProfile.intro ?? defaultDraft.intro,
+    mbti: profile.publicProfile.mbti ?? defaultDraft.mbti,
+  })
+  useEffect(() => {
+    setEditNickname(profile.nickname)
+    setEditCity(profile.city)
+    setEditGoal(profile.goal)
+    setEditPublicProfile({
+      avatar: profile.avatar,
+      schedule: profile.publicProfile.schedule ?? defaultDraft.schedule,
+      diet: profile.publicProfile.diet ?? defaultDraft.diet,
+      favoriteBooks: profile.publicProfile.favoriteBooks ?? '',
+      favoriteMovies: profile.publicProfile.favoriteMovies ?? '',
+      intro: profile.publicProfile.intro ?? defaultDraft.intro,
+      mbti: profile.publicProfile.mbti ?? defaultDraft.mbti,
+    })
+  }, [profile])
   const copyProfileId = async () => {
     try {
       await navigator.clipboard.writeText(profile.id)
-      onToast('用户ID已复制')
+      onToast('用户编号已复制')
     } catch {
       onToast(profile.id)
     }
   }
 
   if (panel !== 'home') {
-    const title = panel === 'saved' ? '我的收藏' : panel === 'privacy' ? '隐私与安全' : '主题外观'
+    const title = panel === 'saved' ? '我的收藏' : panel === 'privacy' ? '隐私与安全' : panel === 'theme' ? '主题外观' : '编辑资料'
     const subtitle =
       panel === 'saved'
         ? `${savedCandidates.length} 份关系报告 · ${friendCandidates.length} 位朋友`
         : panel === 'privacy'
           ? '本机设置即时生效'
-          : '选择镜屿的颜色气质'
+          : panel === 'theme'
+            ? '选择镜屿的颜色气质'
+            : '这些信息会帮助别人更准确地理解你'
 
     return (
       <div className="page-stack me-detail">
@@ -2582,6 +2957,122 @@ function MePage({
             <small>{subtitle}</small>
           </div>
         </div>
+
+        {panel === 'edit' && (
+          <section className="settings-card profile-editor">
+            <FieldGroup label="头像">
+              <div className="avatar-uploader">
+                <AvatarMark label={editPublicProfile.avatar || editNickname || '你'} size="large" />
+                <label className="image-action">
+                  <Camera size={16} />
+                  上传头像
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={async (event) => {
+                      const file = event.target.files?.[0]
+                      if (!file) return
+                      try {
+                        const image = await readImageFile(file)
+                        setEditPublicProfile((current) => ({ ...current, avatar: image }))
+                      } catch {
+                        onToast('图片过大或无法读取')
+                      }
+                      event.target.value = ''
+                    }}
+                  />
+                </label>
+              </div>
+            </FieldGroup>
+            <label>
+              <span>昵称</span>
+              <input value={editNickname} onChange={(event) => setEditNickname(event.target.value)} />
+            </label>
+            <label>
+              <span>城市</span>
+              <input value={editCity} onChange={(event) => setEditCity(event.target.value)} />
+            </label>
+            <FieldGroup label="关系目的">
+              <SegmentedControl
+                value={editGoal}
+                options={['亲密关系', '深度朋友', '成长伙伴']}
+                onChange={(value) => setEditGoal(value as RelationGoal)}
+              />
+            </FieldGroup>
+            <FieldGroup label="作息时间">
+              <SegmentedControl
+                value={editPublicProfile.schedule ?? defaultDraft.schedule}
+                options={scheduleOptions}
+                onChange={(value) => setEditPublicProfile((current) => ({ ...current, schedule: value }))}
+              />
+            </FieldGroup>
+            <FieldGroup label="饮食偏好">
+              <SegmentedControl
+                value={editPublicProfile.diet ?? defaultDraft.diet}
+                options={dietOptions}
+                onChange={(value) => setEditPublicProfile((current) => ({ ...current, diet: value }))}
+              />
+            </FieldGroup>
+            <FieldGroup label={`MBTI 倾向 ${mbtiCode(editPublicProfile.mbti)}`}>
+              <div className="mbti-slider-list">
+                {mbtiAxes.map((axis) => {
+                  const mbti = editPublicProfile.mbti ?? defaultDraft.mbti
+                  return (
+                    <label className="mbti-slider" key={axis.key}>
+                      <span>
+                        <strong>{axis.title}</strong>
+                        <small>{mbtiAxisText(mbti[axis.key], axis.left, axis.right)}</small>
+                      </span>
+                      <div>
+                        <em>{axis.left}</em>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={mbti[axis.key]}
+                          onChange={(event) =>
+                            setEditPublicProfile((current) => ({
+                              ...current,
+                              mbti: { ...(current.mbti ?? defaultDraft.mbti), [axis.key]: Number(event.target.value) },
+                            }))
+                          }
+                        />
+                        <em>{axis.right}</em>
+                      </div>
+                    </label>
+                  )
+                })}
+              </div>
+            </FieldGroup>
+            <label>
+              <span>喜欢的书</span>
+              <input
+                value={editPublicProfile.favoriteBooks ?? ''}
+                onChange={(event) => setEditPublicProfile((current) => ({ ...current, favoriteBooks: event.target.value }))}
+              />
+            </label>
+            <label>
+              <span>喜欢的电影</span>
+              <input
+                value={editPublicProfile.favoriteMovies ?? ''}
+                onChange={(event) => setEditPublicProfile((current) => ({ ...current, favoriteMovies: event.target.value }))}
+              />
+            </label>
+            <label>
+              <span>一句介绍</span>
+              <textarea
+                value={editPublicProfile.intro ?? ''}
+                onChange={(event) => setEditPublicProfile((current) => ({ ...current, intro: event.target.value }))}
+              />
+            </label>
+            <button
+              className="primary-button full"
+              onClick={() => void onSaveProfile(editNickname, editCity, editGoal, editPublicProfile)}
+            >
+              保存资料
+            </button>
+          </section>
+        )}
 
         {panel === 'saved' && (
           <div className="detail-list">
@@ -2684,11 +3175,16 @@ function MePage({
         <div>
           <h1>{profile.nickname}</h1>
           <p>{profile.city} · {profile.goal}</p>
+          <div className="profile-tags">
+            <span>{mbtiCode(profile.publicProfile.mbti)}</span>
+            <span>{profile.publicProfile.schedule ?? '作息未填'}</span>
+            <span>{profile.publicProfile.diet ?? '饮食未填'}</span>
+          </div>
           <button className="profile-id-button" onClick={() => void copyProfileId()}>
             <Copy size={14} />
-            ID {profile.id.slice(0, 8)}
+            编号 {profile.id.slice(0, 8)}
           </button>
-          <span>持续探索真实的自己，温柔而坚定地成长。</span>
+          <span>{profile.publicProfile.intro ?? '持续探索真实的自己，温柔而坚定地成长。'}</span>
         </div>
       </section>
 
@@ -2719,6 +3215,7 @@ function MePage({
       </section>
 
       <section className="menu-card">
+        <MenuButton icon={UserRound} title="编辑个人资料" text="头像、MBTI、作息、饮食与兴趣" onClick={() => setPanel('edit')} />
         <MenuButton icon={Users} title="我的关系报告" text={`${savedCandidates.length} 份已收藏报告`} onClick={() => onOpenTab('meet')} />
         <MenuButton icon={MessageCircle} title="我的树洞" text="记录心事，收藏温暖的回应" onClick={() => onOpenTab('tree')} />
         <MenuButton icon={Leaf} title="成长记录" text={`今日计划 ${plannedPracticeCount} 项`} onClick={() => onOpenTab('growth')} />
@@ -2892,7 +3389,12 @@ function SegmentedControl({
 }
 
 function AvatarMark({ label, size = 'normal' }: { label: string; size?: 'normal' | 'large' }) {
-  return <span className={`avatar-mark ${size}`}>{label.slice(0, 1)}</span>
+  const isImage = label.startsWith('data:image') || label.startsWith('http')
+  return (
+    <span className={`avatar-mark ${size}`}>
+      {isImage ? <img src={label} alt="" /> : label.slice(0, 1)}
+    </span>
+  )
 }
 
 function PersonBadge({ label, sub }: { label: string; sub: string }) {
@@ -3000,6 +3502,54 @@ function isValidEmail(value: string | undefined) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value?.trim() ?? '')
 }
 
+function publicProfileFromDraft(draft: RegistrationDraft): PublicProfileDetails {
+  return {
+    avatar: draft.avatar,
+    schedule: draft.schedule.trim(),
+    diet: draft.diet.trim(),
+    favoriteBooks: draft.favoriteBooks.trim(),
+    favoriteMovies: draft.favoriteMovies.trim(),
+    intro: draft.intro.trim() || '希望遇见真实、安静、能慢慢靠近的关系。',
+    mbti: draft.mbti,
+  }
+}
+
+function normalizePublicProfile(value: unknown): PublicProfileDetails {
+  if (!value || typeof value !== 'object') return {}
+  const record = value as Record<string, unknown>
+  return {
+    avatar: typeof record.avatar === 'string' ? record.avatar : undefined,
+    schedule: typeof record.schedule === 'string' ? record.schedule : undefined,
+    diet: typeof record.diet === 'string' ? record.diet : undefined,
+    favoriteBooks: typeof record.favoriteBooks === 'string' ? record.favoriteBooks : undefined,
+    favoriteMovies: typeof record.favoriteMovies === 'string' ? record.favoriteMovies : undefined,
+    intro: typeof record.intro === 'string' ? record.intro : undefined,
+    mbti: normalizeMbti(record.mbti),
+  }
+}
+
+function normalizeMbti(value: unknown): MbtiProfile | undefined {
+  if (!value || typeof value !== 'object') return undefined
+  const record = value as Record<string, unknown>
+  return {
+    energy: clamp(Number(record.energy) || 50, 0, 100),
+    information: clamp(Number(record.information) || 50, 0, 100),
+    decision: clamp(Number(record.decision) || 50, 0, 100),
+    lifestyle: clamp(Number(record.lifestyle) || 50, 0, 100),
+  }
+}
+
+function mbtiCode(mbti?: MbtiProfile) {
+  if (!mbti) return '未填写'
+  return `${mbti.energy >= 50 ? 'E' : 'I'}${mbti.information >= 50 ? 'N' : 'S'}${mbti.decision >= 50 ? 'F' : 'T'}${mbti.lifestyle >= 50 ? 'P' : 'J'}`
+}
+
+function mbtiAxisText(value: number, left: string, right: string) {
+  const rightSide = value >= 50
+  const percent = rightSide ? value : 100 - value
+  return `${rightSide ? right : left} ${Math.round(percent)}%`
+}
+
 function growthPanelTitle(panel: GrowthPanel) {
   if (panel === 'path') return '成长路径'
   if (panel === 'reading') return '推荐阅读'
@@ -3051,6 +3601,17 @@ function articlePreview(post: TreePost) {
   return post.content.replace(/^《.+?》\s*/, '').replace(/\s+/g, ' ').trim().slice(0, 68) || '作者留下了一段安静的文字。'
 }
 
+function readImageFile(file: File, maxBytes = 980_000) {
+  if (!file.type.startsWith('image/')) return Promise.reject(new Error('请选择图片文件'))
+  if (file.size > maxBytes) return Promise.reject(new Error('图片过大，请选择 1MB 以内图片'))
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(new Error('图片读取失败'))
+    reader.readAsDataURL(file)
+  })
+}
+
 function themeStyle(theme: ThemeKey, customAccent: string): CSSProperties | undefined {
   if (theme !== 'custom') return undefined
   return {
@@ -3063,15 +3624,17 @@ function themeStyle(theme: ThemeKey, customAccent: string): CSSProperties | unde
 }
 
 function mapApiProfile(item: ApiProfile, avatar = '澄'): Profile {
+  const publicProfile = normalizePublicProfile(item.answers?.public_profile)
   return {
     id: item.id,
     email: item.email_masked,
-    avatar,
+    avatar: publicProfile.avatar ?? avatar,
     nickname: item.nickname,
     city: item.city,
     goal: item.goal as RelationGoal,
     privacy: item.privacy as PrivacyLevel,
     identityStatus: item.identity_status,
+    publicProfile,
     traits: {
       values: item.traits.values ?? 50,
       lifestyle: item.traits.lifestyle ?? 50,
@@ -3088,20 +3651,25 @@ function mapApiProfile(item: ApiProfile, avatar = '澄'): Profile {
 }
 
 function mapApiRecommendation(item: ApiRecommendation): Candidate & { liveScore: number } {
+  const publicProfile = normalizePublicProfile(item.public_profile)
+  const mbti = mbtiCode(publicProfile.mbti)
   return {
     id: item.id,
     name: item.nickname,
     age: item.is_seed ? 26 : 25,
     city: item.city,
-    type: item.is_seed ? '样例用户' : '内测用户',
+    type: mbti === '未填写' ? (item.is_seed ? '样例用户' : '内测用户') : `MBTI ${mbti}`,
     goal: item.goal as RelationGoal,
     score: item.score,
     liveScore: item.score,
     confidence: item.is_seed ? '样例' : '真实用户',
-    avatar: item.nickname.slice(0, 1),
-    mood: item.intro,
-    tags: item.anchors.slice(0, 3),
-    intro: item.intro,
+    avatar: publicProfile.avatar ?? item.nickname.slice(0, 1),
+    mood: publicProfile.intro ?? item.intro,
+    publicProfile,
+    tags: [mbti === '未填写' ? '' : mbti, publicProfile.schedule ?? '', publicProfile.diet ?? '', ...item.anchors]
+      .filter(Boolean)
+      .slice(0, 3),
+    intro: publicProfile.intro ?? item.intro,
     dimensions: {
       values: item.traits.values ?? 50,
       lifestyle: item.traits.lifestyle ?? 50,

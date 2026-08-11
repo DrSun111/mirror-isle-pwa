@@ -38,6 +38,8 @@ export interface ProfileUpdatePayload {
   goal: string
   privacy: string
   age_confirmed: boolean
+  public_profile?: Record<string, unknown>
+  intro?: string
 }
 
 export interface ApiUser {
@@ -53,7 +55,7 @@ export interface ApiUser {
 
 export interface ApiProfile extends ApiUser {
   traits: Record<string, number>
-  answers: Record<string, string>
+  answers: Record<string, unknown>
   confidence: number
   anchors: string[]
   created_at: string
@@ -72,6 +74,7 @@ export interface ApiRecommendation {
   similar: string[]
   different: string[]
   friction: string[]
+  public_profile?: Record<string, unknown>
 }
 
 export interface ApiFriendResult {
@@ -526,6 +529,7 @@ export const loginWithPassword = async (email: string, password: string) => {
 const profileToRecommendation = (row: MirrorProfileRow, myTraits: Record<string, number>, isSeed = false): ApiRecommendation => {
   const peerTraits = row.traits ?? defaultTraits
   const explanation = explainMatch(myTraits, peerTraits)
+  const answers = (row.answers ?? {}) as Record<string, unknown>
   return {
     id: row.id,
     nickname: row.nickname,
@@ -536,6 +540,7 @@ const profileToRecommendation = (row: MirrorProfileRow, myTraits: Record<string,
     anchors: row.anchors?.length ? row.anchors : ['深度探索者'],
     intro: row.intro || '希望遇见真实、安静、能慢慢靠近的关系。',
     is_seed: isSeed,
+    public_profile: answers.public_profile as Record<string, unknown> | undefined,
     ...explanation,
   }
 }
@@ -603,6 +608,16 @@ export const updateMe = async (token: string, payload: ProfileUpdatePayload) => 
 
   void token
   const user = await getCurrentUser()
+  let mergedAnswers: Record<string, unknown> | undefined
+  if (payload.public_profile) {
+    const existing = await client()
+      .from('mirror_profiles')
+      .select('answers')
+      .eq('id', user.id)
+      .single<{ answers: Record<string, unknown> | null }>()
+    if (existing.error) throw existing.error
+    mergedAnswers = { ...(existing.data.answers ?? {}), public_profile: payload.public_profile }
+  }
   const { data, error } = await client()
     .from('mirror_profiles')
     .update({
@@ -611,6 +626,8 @@ export const updateMe = async (token: string, payload: ProfileUpdatePayload) => 
       goal: payload.goal,
       privacy: payload.privacy,
       age_confirmed: payload.age_confirmed,
+      ...(mergedAnswers ? { answers: mergedAnswers } : {}),
+      ...(payload.intro ? { intro: payload.intro } : {}),
       updated_at: new Date().toISOString(),
     })
     .eq('id', user.id)
@@ -635,12 +652,18 @@ export const saveAssessment = async (token: string, answers: Record<string, stri
   void token
   const user = await getCurrentUser()
   const result = buildTraits(answers)
+  const existing = await client()
+    .from('mirror_profiles')
+    .select('answers')
+    .eq('id', user.id)
+    .single<{ answers: Record<string, unknown> | null }>()
+  if (existing.error) throw existing.error
   const intro = `${result.anchors.slice(0, 2).join(' · ')}，正在镜屿里练习更真实地表达自己。`
   const { error } = await client()
     .from('mirror_profiles')
     .update({
       traits: result.traits,
-      answers,
+      answers: { ...(existing.data.answers ?? {}), ...answers },
       confidence: result.confidence,
       anchors: result.anchors,
       intro,
