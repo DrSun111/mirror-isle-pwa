@@ -10,6 +10,7 @@ import {
   CircleAlert,
   CircleCheck,
   Clock3,
+  Copy,
   Heart,
   House,
   Landmark,
@@ -2258,6 +2259,14 @@ function MePage({
     messageNotice: true,
     safeMode: true,
   })
+  const copyProfileId = async () => {
+    try {
+      await navigator.clipboard.writeText(profile.id)
+      onToast('用户ID已复制')
+    } catch {
+      onToast(profile.id)
+    }
+  }
 
   if (panel !== 'home') {
     const title = panel === 'saved' ? '我的收藏' : panel === 'privacy' ? '隐私与安全' : '主题外观'
@@ -2381,6 +2390,10 @@ function MePage({
         <div>
           <h1>{profile.nickname}</h1>
           <p>{profile.city} · {profile.goal}</p>
+          <button className="profile-id-button" onClick={() => void copyProfileId()}>
+            <Copy size={14} />
+            ID {profile.id.slice(0, 8)}
+          </button>
           <span>持续探索真实的自己，温柔而坚定地成长。</span>
         </div>
       </section>

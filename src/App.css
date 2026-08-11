@@ -1865,6 +1865,22 @@ button.detail-item {
   color: #607489;
 }
 
+.profile-id-button {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  width: fit-content;
+  min-height: 26px;
+  margin-top: 8px;
+  padding: 0 9px;
+  color: #173b61;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(23, 59, 97, 0.1);
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 11px;
+}
+
 .profile-hero span {
   display: block;
   margin-top: 10px;
