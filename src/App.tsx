@@ -32,7 +32,7 @@ import {
   fetchConversationMessages,
   fetchRecommendations,
   fetchTreePosts,
-  loginWithInvite,
+  loginWithPassword,
   registerWithInvite,
   saveAssessment,
   sendConversationMessage,
@@ -587,6 +587,14 @@ function formatInviteAuthError(message: string, fallback: string) {
   return message ? `${fallback}：${message}` : fallback
 }
 
+function formatPasswordAuthError(message: string, fallback: string) {
+  if (/Invalid login credentials/i.test(message)) return '邮箱或密码不正确'
+  if (/Email not confirmed|email_confirmation/i.test(message)) return '邮箱尚未确认，请先关闭 Supabase Confirm email'
+  if (/network_timeout/i.test(message)) return '连接超时，请换网络后重试'
+  if (/network_unreachable|failed to fetch|network|fetch/i.test(message)) return '网络连接失败，请换网络后重试'
+  return message ? `${fallback}：${message}` : fallback
+}
+
 function App() {
   const [screen, setScreen] = useState<Screen>('welcome')
   const [authMode, setAuthMode] = useState<AuthMode>('login')
@@ -661,16 +669,28 @@ function App() {
     }
   }
 
-  const enterWithInvite = async () => {
-    if (!isValidQqEmail(draft.email) || !draft.inviteCode.trim()) {
-      showToast('请填写 QQ 邮箱和邀请码')
+  const enterAccount = async () => {
+    if (!isValidQqEmail(draft.email)) {
+      showToast('请填写 QQ 邮箱')
+      return
+    }
+    if (draft.password.trim().length < 6) {
+      showToast('请填写至少 6 位密码')
+      return
+    }
+    if (authMode === 'register' && !draft.inviteCode.trim()) {
+      showToast('请填写邀请码')
+      return
+    }
+    if (authMode === 'register' && draft.password !== draft.confirmPassword) {
+      showToast('两次输入的密码不一致')
       return
     }
     try {
       const login =
         authMode === 'register'
-          ? await registerWithInvite(draft.email, draft.inviteCode)
-          : await loginWithInvite(draft.email, draft.inviteCode)
+          ? await registerWithInvite(draft.email, draft.inviteCode, draft.password)
+          : await loginWithPassword(draft.email, draft.password)
       const nextProfile = mapApiProfile(login.profile, profile?.avatar ?? draft.avatar)
       setAuthToken(login.token)
       setApiUser(login.user)
@@ -697,12 +717,12 @@ function App() {
       }
       showToast(authMode === 'register' ? '邀请通过，请设定资料' : '登录成功')
     } catch (error) {
-      console.error('invite auth failed', error)
+      console.error('account auth failed', error)
       setAuthToken(null)
       setApiUser(null)
       setBackendState('offline')
       const message = error instanceof Error ? error.message : ''
-      showToast(formatInviteAuthError(message, authMode === 'register' ? '注册失败' : '登录失败'))
+      showToast(authMode === 'register' ? formatInviteAuthError(message, '注册失败') : formatPasswordAuthError(message, '登录失败'))
     }
   }
 
@@ -954,7 +974,7 @@ function App() {
             draft={draft}
             setAuthMode={setAuthMode}
             setDraft={setDraft}
-            onEnter={enterWithInvite}
+            onEnter={enterAccount}
           />
       )}
 
@@ -1061,15 +1081,39 @@ function WelcomeScreen({
             />
           </label>
 
+          {authMode === 'register' && (
+            <label>
+              <span>邀请码</span>
+              <input
+                value={draft.inviteCode}
+                onChange={(event) => setDraft((current) => ({ ...current, inviteCode: event.target.value.toUpperCase() }))}
+                placeholder="JINGYU2026"
+                autoComplete="one-time-code"
+              />
+            </label>
+          )}
           <label>
-            <span>邀请码</span>
+            <span>密码</span>
             <input
-              value={draft.inviteCode}
-              onChange={(event) => setDraft((current) => ({ ...current, inviteCode: event.target.value.toUpperCase() }))}
-              placeholder="JINGYU2026"
-              autoComplete="one-time-code"
+              value={draft.password}
+              onChange={(event) => setDraft((current) => ({ ...current, password: event.target.value }))}
+              placeholder={authMode === 'register' ? '设置登录密码' : '输入登录密码'}
+              type="password"
+              autoComplete={authMode === 'register' ? 'new-password' : 'current-password'}
             />
           </label>
+          {authMode === 'register' && (
+            <label>
+              <span>确认密码</span>
+              <input
+                value={draft.confirmPassword}
+                onChange={(event) => setDraft((current) => ({ ...current, confirmPassword: event.target.value }))}
+                placeholder="再输入一次"
+                type="password"
+                autoComplete="new-password"
+              />
+            </label>
+          )}
           <button className="primary-button full entry-submit" onClick={onEnter}>
             {authMode === 'register' ? '注册并设定资料' : '进入镜屿'}
           </button>
