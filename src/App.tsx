@@ -46,6 +46,7 @@ import {
   submitIdentity,
   updateMe,
   type ApiProfile,
+  type ApiMessage,
   type ApiRecommendation,
   type ApiTreePost,
   type ApiUser,
@@ -61,7 +62,7 @@ type RelationGoal = '亲密关系' | '深度朋友' | '成长伙伴'
 type PrivacyLevel = 'private' | 'friends' | 'public'
 type DimensionKey = 'values' | 'lifestyle' | 'relationship' | 'communication' | 'growth' | 'boundary'
 
-const APP_VERSION = '0.12.1'
+const APP_VERSION = '0.12.2'
 const RELEASES_API_URL = 'https://api.github.com/repos/DrSun111/mirror-isle-pwa/releases/latest'
 const RELEASES_PAGE_URL = 'https://github.com/DrSun111/mirror-isle-pwa/releases/latest'
 
@@ -154,6 +155,13 @@ interface ChatMessage {
   id: string
   from: 'me' | 'them'
   text: string
+  createdAt?: string
+}
+
+interface ConversationPreview {
+  lastText: string
+  lastAt: string
+  unread: number
 }
 
 const baseUrl = import.meta.env.BASE_URL
@@ -589,7 +597,7 @@ const themeOptions: Array<{ key: ThemeKey; label: string; hint: string; colors: 
 
 function formatInviteAuthError(message: string, fallback: string) {
   if (/invalid_invite_code/i.test(message)) return '邀请码无效，请确认后重试'
-  if (/email_confirmation_still_enabled/i.test(message)) return 'Supabase 仍开启邮箱确认，请先关闭 Confirm email 后再注册'
+  if (/email_confirmation_still_enabled/i.test(message)) return '邮箱确认仍处于开启状态，请先关闭后再注册'
   if (/Invalid login credentials/i.test(message)) return '邮箱或邀请码不正确'
   if (/User already registered|already registered|already exists/i.test(message)) return '该邮箱已注册，请切换到登录'
   if (/network_timeout/i.test(message)) return '连接超时，请换网络后重试'
@@ -599,7 +607,7 @@ function formatInviteAuthError(message: string, fallback: string) {
 
 function formatPasswordAuthError(message: string, fallback: string) {
   if (/Invalid login credentials/i.test(message)) return '邮箱或密码不正确'
-  if (/Email not confirmed|email_confirmation/i.test(message)) return '邮箱尚未确认，请先关闭 Supabase Confirm email'
+  if (/Email not confirmed|email_confirmation/i.test(message)) return '邮箱尚未确认，请先关闭邮箱确认后再登录'
   if (/network_timeout/i.test(message)) return '连接超时，请换网络后重试'
   if (/network_unreachable|failed to fetch|network|fetch/i.test(message)) return '网络连接失败，请换网络后重试'
   return message ? `${fallback}：${message}` : fallback
@@ -624,6 +632,8 @@ function App() {
   const [treePosts, setTreePosts] = useStoredState<TreePost[]>('mirror-isle:tree-posts', seedTreePosts)
   const [chatMessages, setChatMessages] = useStoredState<ChatMessage[]>('mirror-isle:messages', startingMessages)
   const [localConversations, setLocalConversations] = useStoredState<Record<string, ChatMessage[]>>('mirror-isle:local-conversations', {})
+  const [conversationPreviews, setConversationPreviews] = useStoredState<Record<string, ConversationPreview>>('mirror-isle:conversation-previews', {})
+  const [readMessageIds, setReadMessageIds] = useStoredState<Record<string, string>>('mirror-isle:read-message-ids', {})
   const [selectedCandidateId, setSelectedCandidateId] = useStoredState('mirror-isle:selected', candidates[0].id)
   const [questionIndex, setQuestionIndex] = useStoredState('mirror-isle:question-index', 0)
   const [friendIds, setFriendIds] = useStoredState<string[]>('mirror-isle:friends', [])
@@ -668,6 +678,11 @@ function App() {
   const knownCandidates = useMemo(
     () => mergeCandidates([...remoteFriends, ...rankedCandidates]),
     [rankedCandidates, remoteFriends],
+  )
+
+  const friendCandidates = useMemo(
+    () => knownCandidates.filter((candidate) => friendIds.includes(candidate.id)),
+    [friendIds, knownCandidates],
   )
 
   const selectedCandidate =
@@ -842,6 +857,8 @@ function App() {
     window.localStorage.removeItem('mirror-isle:question-index')
     window.localStorage.removeItem('mirror-isle:messages')
     window.localStorage.removeItem('mirror-isle:local-conversations')
+    window.localStorage.removeItem('mirror-isle:conversation-previews')
+    window.localStorage.removeItem('mirror-isle:read-message-ids')
     window.localStorage.removeItem('mirror-isle:tree-posts')
     window.localStorage.removeItem('mirror-isle:conversation-ids')
     window.localStorage.removeItem('mirror-isle:saved-reports')
@@ -857,6 +874,8 @@ function App() {
     setQuestionIndex(0)
     setChatMessages(startingMessages)
     setLocalConversations({})
+    setConversationPreviews({})
+    setReadMessageIds({})
     setTreePosts(seedTreePosts)
     setRemoteCandidates(null)
     setRemoteFriends([])
@@ -906,11 +925,80 @@ function App() {
     [authToken, conversationIds, setConversationIds],
   )
 
+  const updateRemoteConversationPreview = useCallback(
+    (candidateId: string, messages: ApiMessage[], markRead: boolean) => {
+      const lastMessage = messages[messages.length - 1]
+      if (!lastMessage) {
+        if (markRead) {
+          setConversationPreviews((current) => ({
+            ...current,
+            [candidateId]: { lastText: '还没有消息', lastAt: '', unread: 0 },
+          }))
+        }
+        return
+      }
+
+      const readId = readMessageIds[candidateId]
+      const readIndex = readId ? messages.findIndex((message) => message.id === readId) : -1
+      const unreadMessages = readIndex >= 0 ? messages.slice(readIndex + 1) : messages
+      const unread = markRead ? 0 : unreadMessages.filter((message) => message.sender_id !== profile?.id).length
+
+      setConversationPreviews((current) => ({
+        ...current,
+        [candidateId]: {
+          lastText: lastMessage.content,
+          lastAt: lastMessage.created_at,
+          unread,
+        },
+      }))
+      if (markRead) {
+        setReadMessageIds((current) => ({ ...current, [candidateId]: lastMessage.id }))
+      }
+    },
+    [profile?.id, readMessageIds, setConversationPreviews, setReadMessageIds],
+  )
+
+  const updateLocalConversationPreview = useCallback(
+    (candidateId: string, messages: ChatMessage[], markRead: boolean) => {
+      const lastMessage = messages[messages.length - 1]
+      if (!lastMessage) {
+        if (markRead) {
+          setConversationPreviews((current) => ({
+            ...current,
+            [candidateId]: { lastText: '还没有消息', lastAt: '', unread: 0 },
+          }))
+        }
+        return
+      }
+
+      const readId = readMessageIds[candidateId]
+      const readIndex = readId ? messages.findIndex((message) => message.id === readId) : -1
+      const unreadMessages = readIndex >= 0 ? messages.slice(readIndex + 1) : messages
+      const unread = markRead ? 0 : unreadMessages.filter((message) => message.from === 'them').length
+      const lastAt = lastMessage.createdAt ?? new Date().toISOString()
+
+      setConversationPreviews((current) => ({
+        ...current,
+        [candidateId]: {
+          lastText: lastMessage.text,
+          lastAt,
+          unread,
+        },
+      }))
+      if (markRead) {
+        setReadMessageIds((current) => ({ ...current, [candidateId]: lastMessage.id }))
+      }
+    },
+    [readMessageIds, setConversationPreviews, setReadMessageIds],
+  )
+
   const syncConversationMessages = useCallback(
     async (candidateId: string) => {
       if (!authToken || !profile) return
       if (isSampleCandidateId(candidateId)) {
-        setChatMessages(localConversations[candidateId] ?? [])
+        const messages = localConversations[candidateId] ?? []
+        setChatMessages(messages)
+        updateLocalConversationPreview(candidateId, messages, true)
         return
       }
       try {
@@ -921,15 +1009,52 @@ function App() {
             id: message.id,
             from: message.sender_id === profile.id ? 'me' : 'them',
             text: message.content,
+            createdAt: message.created_at,
           })),
         )
+        updateRemoteConversationPreview(candidateId, result.items, true)
         setBackendState('online')
       } catch {
         setBackendState('offline')
         showToast('消息同步失败，请稍后重试')
       }
     },
-    [authToken, getConversationId, localConversations, profile, setChatMessages, showToast],
+    [
+      authToken,
+      getConversationId,
+      localConversations,
+      profile,
+      setChatMessages,
+      showToast,
+      updateLocalConversationPreview,
+      updateRemoteConversationPreview,
+    ],
+  )
+
+  const refreshConversationPreview = useCallback(
+    async (candidateId: string) => {
+      if (!authToken || !profile) return
+      if (isSampleCandidateId(candidateId)) {
+        updateLocalConversationPreview(candidateId, localConversations[candidateId] ?? [], false)
+        return
+      }
+      try {
+        const conversationId = await getConversationId(candidateId)
+        const result = await fetchConversationMessages(authToken, conversationId)
+        updateRemoteConversationPreview(candidateId, result.items, false)
+        setBackendState('online')
+      } catch {
+        setBackendState('offline')
+      }
+    },
+    [
+      authToken,
+      getConversationId,
+      localConversations,
+      profile,
+      updateLocalConversationPreview,
+      updateRemoteConversationPreview,
+    ],
   )
 
   const sendRemoteMessage = async (candidateId: string, content: string) => {
@@ -940,17 +1065,20 @@ function App() {
     if (isSampleCandidateId(candidateId)) {
       const candidate = knownCandidates.find((item) => item.id === candidateId)
       const currentThread = localConversations[candidateId] ?? []
+      const now = new Date().toISOString()
       const nextThread = [
         ...currentThread,
-        { id: `local-${Date.now()}`, from: 'me' as const, text: content },
+        { id: `local-${Date.now()}`, from: 'me' as const, text: content, createdAt: now },
         {
           id: `local-reply-${Date.now()}`,
           from: 'them' as const,
           text: buildSampleReply(candidate, content),
+          createdAt: now,
         },
       ]
       setLocalConversations({ ...localConversations, [candidateId]: nextThread })
       setChatMessages(nextThread)
+      updateLocalConversationPreview(candidateId, nextThread, true)
       showToast('本地样例会话已发送')
       return
     }
@@ -996,7 +1124,7 @@ function App() {
     }
   }
 
-  const checkForUpdate = async () => {
+  const checkForUpdate = useCallback(async (options: { silentWhenLatest?: boolean } = {}) => {
     try {
       const response = await fetch(RELEASES_API_URL, {
         headers: { Accept: 'application/vnd.github+json' },
@@ -1010,16 +1138,25 @@ function App() {
       const latestVersion = (latest.tag_name ?? '').replace(/^v/i, '')
       const apkUrl = latest.assets?.find((asset) => asset.name?.endsWith('.apk'))?.browser_download_url
       if (latestVersion && isVersionNewer(latestVersion, APP_VERSION) && apkUrl) {
-        showToast(`发现新版 v${latestVersion}，正在打开下载`)
+        showToast(`发现新版 ${latestVersion}，正在打开下载`)
         await openExternalUrl(apkUrl)
         return
       }
-      showToast(`已是最新版本 v${APP_VERSION}`)
+      if (!options.silentWhenLatest) showToast(`已是最新版本 ${APP_VERSION}`)
     } catch {
+      if (options.silentWhenLatest) return
       showToast('正在打开更新页面')
       await openExternalUrl(RELEASES_PAGE_URL)
     }
-  }
+  }, [showToast])
+
+  useEffect(() => {
+    if (screen !== 'app' || !authToken) return
+    const timer = window.setTimeout(() => {
+      void checkForUpdate({ silentWhenLatest: true })
+    }, 1600)
+    return () => window.clearTimeout(timer)
+  }, [authToken, checkForUpdate, screen])
 
   useEffect(() => {
     if (screen !== 'app' || activeTab !== 'messages' || !selectedCandidate || !authToken) return
@@ -1029,6 +1166,19 @@ function App() {
     }, 8000)
     return () => window.clearInterval(timer)
   }, [activeTab, authToken, screen, selectedCandidate, syncConversationMessages])
+
+  useEffect(() => {
+    if (screen !== 'app' || !authToken || !friendCandidates.length) return
+    friendCandidates.forEach((friend) => {
+      void refreshConversationPreview(friend.id)
+    })
+    const timer = window.setInterval(() => {
+      friendCandidates.forEach((friend) => {
+        void refreshConversationPreview(friend.id)
+      })
+    }, 12000)
+    return () => window.clearInterval(timer)
+  }, [authToken, friendCandidates, refreshConversationPreview, screen])
 
   const submitRealIdentity = async (realName: string, idNumber: string) => {
     if (!authToken || !profile) {
@@ -1079,9 +1229,10 @@ function App() {
           profile={profile}
           selectedCandidate={selectedCandidate}
           rankedCandidates={rankedCandidates}
-          friendCandidates={knownCandidates.filter((candidate) => friendIds.includes(candidate.id))}
+          friendCandidates={friendCandidates}
           treePosts={treePosts}
           chatMessages={chatMessages}
+          conversationPreviews={conversationPreviews}
           friendIds={friendIds}
           themeKey={themeKey}
           customAccent={customAccent}
@@ -1152,7 +1303,7 @@ function WelcomeScreen({
             <input
               value={draft.email ?? ''}
               onChange={(event) => setDraft((current) => ({ ...current, email: event.target.value }))}
-              placeholder="you@example.com"
+              placeholder="邮箱地址"
               type="email"
               autoComplete="email"
             />
@@ -1433,6 +1584,7 @@ function AppShell({
   friendCandidates,
   treePosts,
   chatMessages,
+  conversationPreviews,
   friendIds,
   themeKey,
   customAccent,
@@ -1459,6 +1611,7 @@ function AppShell({
   friendCandidates: Array<Candidate & { liveScore: number }>
   treePosts: TreePost[]
   chatMessages: ChatMessage[]
+  conversationPreviews: Record<string, ConversationPreview>
   friendIds: string[]
   themeKey: ThemeKey
   customAccent: string
@@ -1540,7 +1693,7 @@ function AppShell({
       <aside className="product-brief">
         <span className="eyebrow">
           <CircleCheck size={16} />
-          可运行 MVP
+          内测版本
         </span>
         <h2>内测登录、心谱、树洞和消息已接入后端</h2>
         <p>
@@ -1624,6 +1777,7 @@ function AppShell({
                   candidate={selectedCandidate}
                   friends={friendCandidates}
                   messages={chatMessages}
+                  conversationPreviews={conversationPreviews}
                   onSelectFriend={(candidateId) => setSelectedCandidateId(candidateId)}
                   onAddFriend={onAddFriend}
                   onSearchFriends={onSearchFriends}
@@ -2177,6 +2331,7 @@ function MessagesPage({
   candidate,
   friends,
   messages,
+  conversationPreviews,
   onSelectFriend,
   onAddFriend,
   onSearchFriends,
@@ -2186,6 +2341,7 @@ function MessagesPage({
   candidate: Candidate & { liveScore: number }
   friends: Array<Candidate & { liveScore: number }>
   messages: ChatMessage[]
+  conversationPreviews: Record<string, ConversationPreview>
   onSelectFriend: (candidateId: string) => void
   onAddFriend: (candidateId: string) => Promise<void>
   onSearchFriends: (query: string) => Promise<Array<Candidate & { liveScore: number }>>
@@ -2196,6 +2352,14 @@ function MessagesPage({
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Array<Candidate & { liveScore: number }>>([])
   const [isSearching, setIsSearching] = useState(false)
+  const conversations = useMemo(
+    () =>
+      friends
+        .map((friend) => ({ friend, preview: conversationPreviews[friend.id] }))
+        .filter(({ friend, preview }) => friend.id === candidate.id || Boolean(preview?.lastText))
+        .sort((a, b) => new Date(b.preview?.lastAt || 0).getTime() - new Date(a.preview?.lastAt || 0).getTime()),
+    [candidate.id, conversationPreviews, friends],
+  )
 
   const sendMessage = async () => {
     if (!draft.trim()) return
@@ -2220,9 +2384,40 @@ function MessagesPage({
 
   return (
     <div className="messages-page">
-      <section className="conversation-panel">
+      <section className="conversation-panel message-section">
         <div className="conversation-title">
-          <strong>好友 / 会话</strong>
+          <strong>会话</strong>
+          <span>{conversations.length} 条</span>
+        </div>
+
+        <div className="conversation-list">
+          {conversations.length ? (
+            conversations.map(({ friend, preview }) => {
+              const unread = preview?.unread ?? 0
+              return (
+                <button
+                  key={friend.id}
+                  className={friend.id === candidate.id ? 'friend-row active' : 'friend-row'}
+                  onClick={() => onSelectFriend(friend.id)}
+                >
+                  <AvatarMark label={friend.avatar} />
+                  <span>
+                    <strong>{friend.name}</strong>
+                    <small>{preview?.lastText ?? '还没有消息'}</small>
+                  </span>
+                  <span className={unread ? 'unread-pill active' : 'unread-pill'}>{unread ? unread : '已读'}</span>
+                </button>
+              )
+            })
+          ) : (
+            <div className="compact-empty">还没有会话</div>
+          )}
+        </div>
+      </section>
+
+      <section className="conversation-panel message-section">
+        <div className="conversation-title">
+          <strong>好友</strong>
           <span>{friends.length} 位</span>
         </div>
         <label className="friend-search">
@@ -2258,19 +2453,23 @@ function MessagesPage({
 
         <div className="friend-list">
           {friends.length ? (
-            friends.map((friend) => (
-              <button
-                key={friend.id}
-                className={friend.id === candidate.id ? 'friend-row active' : 'friend-row'}
-                onClick={() => onSelectFriend(friend.id)}
-              >
-                <AvatarMark label={friend.avatar} />
-                <span>
-                  <strong>{friend.name}</strong>
-                  <small>{friend.city} · {friend.liveScore}%</small>
-                </span>
-              </button>
-            ))
+            friends.map((friend) => {
+              const unread = conversationPreviews[friend.id]?.unread ?? 0
+              return (
+                <button
+                  key={friend.id}
+                  className={friend.id === candidate.id ? 'friend-row active' : 'friend-row'}
+                  onClick={() => onSelectFriend(friend.id)}
+                >
+                  <AvatarMark label={friend.avatar} />
+                  <span>
+                    <strong>{friend.name}</strong>
+                    <small>{friend.city} · {friend.liveScore}% 契合</small>
+                  </span>
+                  <span className={unread ? 'unread-pill active' : 'unread-pill'}>未读 {unread}</span>
+                </button>
+              )
+            })
           ) : (
             <div className="compact-empty">搜索邮箱或用户 ID 添加好友</div>
           )}
@@ -2528,7 +2727,7 @@ function MePage({
 
       <section className="menu-card">
         <MenuButton icon={Sparkles} title="主题外观" text={themeOptions.find((item) => item.key === themeKey)?.label ?? '自定义'} onClick={() => setPanel('theme')} />
-        <MenuButton icon={Download} title="检查更新" text={`当前版本 v${APP_VERSION}`} onClick={() => void onCheckUpdate()} />
+        <MenuButton icon={Download} title="检查更新" text={`当前版本 ${APP_VERSION}`} onClick={() => void onCheckUpdate()} />
         <MenuButton icon={ShieldCheck} title="隐私与安全" text="管理你的数据与隐私设置" onClick={() => setPanel('privacy')} />
         <MenuButton icon={NotebookTabs} title="重新完成心谱" text="更新你的画像与推荐权重" onClick={onRetake} />
         <MenuButton icon={CircleAlert} title="退出并重新登录" text="清除本机登录状态" onClick={onReset} />
@@ -2881,7 +3080,7 @@ function mapApiProfile(item: ApiProfile, avatar = '澄'): Profile {
       growth: item.traits.growth ?? 50,
       boundary: item.traits.boundary ?? 50,
       confidence: item.confidence ?? 48,
-      anchors: item.anchors?.length ? item.anchors : ['Deep explorer'],
+      anchors: item.anchors?.length ? item.anchors : ['深度探索者'],
     },
     answers: item.answers ?? {},
     createdAt: item.created_at,
@@ -2894,7 +3093,7 @@ function mapApiRecommendation(item: ApiRecommendation): Candidate & { liveScore:
     name: item.nickname,
     age: item.is_seed ? 26 : 25,
     city: item.city,
-    type: item.is_seed ? 'Beta' : '内测用户',
+    type: item.is_seed ? '样例用户' : '内测用户',
     goal: item.goal as RelationGoal,
     score: item.score,
     liveScore: item.score,

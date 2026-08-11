@@ -155,40 +155,40 @@ const defaultTraits: Record<DimensionKey, number> = {
 
 const questionEffects: Record<string, Record<string, Partial<Record<DimensionKey, number>> & { anchor: string }>> = {
   'friday-night': {
-    'read-alone': { lifestyle: 7, boundary: 8, communication: -3, anchor: 'Quiet social rhythm' },
-    'small-party': { relationship: 7, communication: 5, boundary: 2, anchor: 'Warm connector' },
-    'new-world': { growth: 8, values: 5, communication: 4, anchor: 'Explorer' },
-    'quiet-chat': { relationship: 8, boundary: 6, communication: 3, anchor: 'Deep talker' },
+    'read-alone': { lifestyle: 7, boundary: 8, communication: -3, anchor: '低频社交者' },
+    'small-party': { relationship: 7, communication: 5, boundary: 2, anchor: '温和连接者' },
+    'new-world': { growth: 8, values: 5, communication: 4, anchor: '探索者' },
+    'quiet-chat': { relationship: 8, boundary: 6, communication: 3, anchor: '深聊型人格' },
   },
   schedule: {
-    prepare: { lifestyle: 12, boundary: 4, anchor: 'Planner' },
-    'on-time': { lifestyle: 8, communication: 4, anchor: 'Reliable sync' },
-    'ten-minutes': { lifestyle: -4, relationship: 3, anchor: 'Flexible pace' },
-    'same-day': { lifestyle: -9, growth: 4, anchor: 'Spontaneous explorer' },
+    prepare: { lifestyle: 12, boundary: 4, anchor: '计划型生活者' },
+    'on-time': { lifestyle: 8, communication: 4, anchor: '稳定同行者' },
+    'ten-minutes': { lifestyle: -4, relationship: 3, anchor: '弹性节奏者' },
+    'same-day': { lifestyle: -9, growth: 4, anchor: '即兴探索者' },
   },
   conflict: {
-    'talk-now': { communication: 7, relationship: 5, anchor: 'Fast repair' },
-    'cool-down': { boundary: 9, communication: 2, anchor: 'Reflective repair' },
-    'feelings-first': { relationship: 9, communication: 8, anchor: 'Emotion reader' },
-    'solve-first': { communication: -4, lifestyle: 4, values: 3, anchor: 'Action repair' },
+    'talk-now': { communication: 7, relationship: 5, anchor: '即时修复者' },
+    'cool-down': { boundary: 9, communication: 2, anchor: '反思修复者' },
+    'feelings-first': { relationship: 9, communication: 8, anchor: '情绪读懂者' },
+    'solve-first': { communication: -4, lifestyle: 4, values: 3, anchor: '行动修复者' },
   },
   reply: {
-    'assume-busy': { relationship: -3, boundary: 7, anchor: 'Secure space' },
-    'check-myself': { communication: 7, growth: 4, anchor: 'Reflective communicator' },
-    'do-my-thing': { boundary: 10, lifestyle: 5, anchor: 'Self steady' },
-    'need-clarity': { relationship: 9, communication: 4, anchor: 'Clarity seeker' },
+    'assume-busy': { relationship: -3, boundary: 7, anchor: '安全空间感' },
+    'check-myself': { communication: 7, growth: 4, anchor: '反思型沟通者' },
+    'do-my-thing': { boundary: 10, lifestyle: 5, anchor: '自我稳定者' },
+    'need-clarity': { relationship: 9, communication: 4, anchor: '清晰感需要者' },
   },
   money: {
-    travel: { values: 9, growth: 5, anchor: 'Experience seeker' },
-    'stable-life': { values: -6, lifestyle: 7, anchor: 'Life builder' },
-    learning: { growth: 10, values: 4, anchor: 'Growth seeker' },
-    saving: { values: -8, boundary: 5, lifestyle: 5, anchor: 'Security first' },
+    travel: { values: 9, growth: 5, anchor: '体验追寻者' },
+    'stable-life': { values: -6, lifestyle: 7, anchor: '生活建造者' },
+    learning: { growth: 10, values: 4, anchor: '成长追寻者' },
+    saving: { values: -8, boundary: 5, lifestyle: 5, anchor: '安全优先者' },
   },
   'growth-theme': {
-    boundary: { boundary: 10, growth: 4, anchor: 'Boundary learner' },
-    expression: { communication: 9, growth: 5, anchor: 'Expression learner' },
-    career: { values: 4, growth: 9, anchor: 'Direction finder' },
-    intimacy: { relationship: 10, boundary: 4, anchor: 'Intimacy learner' },
+    boundary: { boundary: 10, growth: 4, anchor: '边界练习者' },
+    expression: { communication: 9, growth: 5, anchor: '表达练习者' },
+    career: { values: 4, growth: 9, anchor: '方向寻找者' },
+    intimacy: { relationship: 10, boundary: 4, anchor: '亲密学习者' },
   },
 }
 
@@ -314,7 +314,7 @@ const rowToProfile = (row: MirrorProfileRow, user?: User | null): ApiProfile => 
   traits: row.traits ?? defaultTraits,
   answers: (row.answers ?? {}) as Record<string, string>,
   confidence: row.confidence ?? 48,
-  anchors: row.anchors?.length ? row.anchors : ['Deep explorer'],
+  anchors: row.anchors?.length ? row.anchors : ['深度探索者'],
   created_at: row.created_at,
 })
 
@@ -344,23 +344,23 @@ const ensureProfile = async (user: User) => {
     return updated.data
   }
 
-  const nickname = (user.email?.split('@')[0] || 'Mirror User').slice(0, 18)
+  const nickname = (user.email?.split('@')[0] || '镜屿用户').slice(0, 18)
   const inserted = await client()
     .from('mirror_profiles')
     .insert({
       id: user.id,
       email,
       nickname,
-      city: 'Unset',
-      goal: 'Deep friend',
+      city: '未设置',
+      goal: '深度朋友',
       privacy: 'friends',
       age_confirmed: false,
       identity_status: 'unsubmitted',
       traits: defaultTraits,
       answers: {},
       confidence: 48,
-      anchors: ['Deep explorer'],
-      intro: 'New to Mirror Isle and still completing the first spectrum.',
+      anchors: ['深度探索者'],
+      intro: '刚来到镜屿，正在完成自己的初见心谱。',
       last_login_at: now,
     })
     .select('*')
@@ -386,7 +386,7 @@ const buildTraits = (answers: Record<string, string>) => {
   return {
     traits,
     confidence: clamp(48 + Object.keys(answers).length * 8, 48, 88),
-    anchors: anchors.length ? anchors : ['Deep explorer', 'Growth seeker'],
+    anchors: anchors.length ? anchors : ['深度探索者', '成长追寻者'],
   }
 }
 
@@ -409,12 +409,12 @@ const scoreMatch = (mine: Record<string, number>, peer: Record<string, number>) 
 
 const explainMatch = (mine: Record<string, number>, peer: Record<string, number>) => {
   const labels: Record<DimensionKey, string> = {
-    values: 'Values',
-    lifestyle: 'Life rhythm',
-    relationship: 'Relationship needs',
-    communication: 'Communication',
-    growth: 'Growth',
-    boundary: 'Boundary',
+    values: '价值观',
+    lifestyle: '生活节律',
+    relationship: '关系需求',
+    communication: '沟通方式',
+    growth: '成长方向',
+    boundary: '边界感',
   }
   const close = [...dimensions]
     .sort((a, b) => Math.abs((mine[a] ?? 50) - (peer[a] ?? 50)) - Math.abs((mine[b] ?? 50) - (peer[b] ?? 50)))
@@ -423,9 +423,9 @@ const explainMatch = (mine: Record<string, number>, peer: Record<string, number>
     .sort((a, b) => Math.abs((mine[b] ?? 50) - (peer[b] ?? 50)) - Math.abs((mine[a] ?? 50) - (peer[a] ?? 50)))
     .slice(0, 2)
   return {
-    similar: close.map((key) => `${labels[key]} is close, so conversation may feel easier.`),
-    different: far.map((key) => `${labels[key]} differs; talk about preferences early.`),
-    friction: far.slice(0, 1).map((key) => `${labels[key]} may create a rhythm gap and needs care.`),
+    similar: close.map((key) => `${labels[key]}接近，交流会更自然。`),
+    different: far.map((key) => `${labels[key]}存在差异，适合早点说清偏好。`),
+    friction: far.slice(0, 1).map((key) => `${labels[key]}可能带来节奏落差，需要温和确认。`),
   }
 }
 
@@ -533,8 +533,8 @@ const profileToRecommendation = (row: MirrorProfileRow, myTraits: Record<string,
     goal: row.goal,
     score: scoreMatch(myTraits, peerTraits),
     traits: peerTraits,
-    anchors: row.anchors?.length ? row.anchors : ['Deep explorer'],
-    intro: row.intro || 'Looking for a relationship that feels real and calm.',
+    anchors: row.anchors?.length ? row.anchors : ['深度探索者'],
+    intro: row.intro || '希望遇见真实、安静、能慢慢靠近的关系。',
     is_seed: isSeed,
     ...explanation,
   }
@@ -635,7 +635,7 @@ export const saveAssessment = async (token: string, answers: Record<string, stri
   void token
   const user = await getCurrentUser()
   const result = buildTraits(answers)
-  const intro = `${result.anchors.slice(0, 2).join(' · ')}, learning to express more honestly in Mirror Isle.`
+  const intro = `${result.anchors.slice(0, 2).join(' · ')}，正在镜屿里练习更真实地表达自己。`
   const { error } = await client()
     .from('mirror_profiles')
     .update({

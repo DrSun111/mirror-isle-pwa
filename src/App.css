@@ -1270,7 +1270,7 @@
 
 .messages-page {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
   gap: 10px;
   min-height: 100%;
 }
@@ -1278,6 +1278,13 @@
 .conversation-panel {
   display: grid;
   gap: 9px;
+}
+
+.message-section {
+  padding: 11px;
+  background: rgba(255, 255, 255, 0.58);
+  border: 1px solid rgba(23, 59, 97, 0.08);
+  border-radius: 16px;
 }
 
 .conversation-title {
@@ -1332,17 +1339,25 @@
 }
 
 .search-result-list,
+.conversation-list,
 .friend-list {
   display: grid;
   gap: 7px;
 }
 
-.friend-list {
-  max-height: 170px;
+.conversation-list {
+  max-height: 124px;
   overflow-y: auto;
   scrollbar-width: none;
 }
 
+.friend-list {
+  max-height: 132px;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.conversation-list::-webkit-scrollbar,
 .friend-list::-webkit-scrollbar {
   display: none;
 }
@@ -1398,6 +1413,23 @@ button.friend-row {
   font-size: 11px;
 }
 
+.unread-pill {
+  min-width: 44px;
+  padding: 5px 7px;
+  color: #7b8ca0;
+  text-align: center;
+  background: rgba(23, 59, 97, 0.06);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.unread-pill.active {
+  color: #fff;
+  background: #c86d62;
+  box-shadow: 0 8px 18px rgba(200, 109, 98, 0.22);
+}
+
 .mini-action {
   min-height: 30px;
   padding: 0 10px;
@@ -1419,6 +1451,10 @@ button.friend-row {
   grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 10px;
   min-height: 100%;
+  padding: 11px;
+  background: rgba(255, 255, 255, 0.58);
+  border: 1px solid rgba(23, 59, 97, 0.08);
+  border-radius: 16px;
 }
 
 .chat-head {
@@ -2876,6 +2912,16 @@ button.detail-item {
     gap: 9px;
   }
 
+  .message-section,
+  .chat-page {
+    padding: 9px;
+    border-radius: 14px;
+  }
+
+  .conversation-list {
+    max-height: 104px;
+  }
+
   .friend-search {
     grid-template-columns: minmax(0, 1fr) 60px;
     padding: 6px;
@@ -2892,7 +2938,7 @@ button.detail-item {
   }
 
   .friend-list {
-    max-height: 126px;
+    max-height: 112px;
   }
 
   .friend-row {
@@ -2904,6 +2950,12 @@ button.detail-item {
   .friend-row .avatar-mark {
     width: 30px;
     height: 30px;
+  }
+
+  .unread-pill {
+    min-width: 38px;
+    padding: 4px 6px;
+    font-size: 10px;
   }
 
   .chat-head {
