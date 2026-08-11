@@ -88,10 +88,20 @@ export interface ApiTreePost {
   author: string
   visibility: string
   content: string
+  images?: string[]
   tags: string[]
   status: string
   created_at: string
   mine: boolean
+}
+
+export interface ApiAppRelease {
+  version: string
+  apk_url: string
+  page_url: string
+  notes: string
+  mandatory: boolean
+  source: 'supabase'
 }
 
 export interface ApiMessage {
@@ -128,11 +138,24 @@ interface MirrorTreePostRow {
   author: string
   visibility: string
   content: string
+  images: string[] | null
   tags: string[] | null
   status: string
   moderation: Record<string, unknown> | null
   created_at: string
 }
+
+interface MirrorAppReleaseRow {
+  version: string
+  apk_url: string
+  page_url: string
+  notes: string | null
+  mandatory: boolean | null
+  is_active: boolean
+  created_at: string
+}
+
+const MEDIA_BUCKET = 'mirror-media'
 
 interface MirrorMessageRow {
   id: string
@@ -283,6 +306,45 @@ const client = () => {
 }
 
 const hasSupabase = () => Boolean(supabase)
+
+export const uploadMediaImage = async (token: string, dataUrl: string, category: 'avatars' | 'posts') => {
+  if (!hasSupabase() || !dataUrl.startsWith('data:image')) return dataUrl
+
+  void token
+  const user = await getCurrentUser()
+  const image = dataUrlToImageBlob(dataUrl)
+  const objectPath = `${user.id}/${category}/${Date.now()}-${randomObjectId()}.${image.extension}`
+  const { error } = await client().storage.from(MEDIA_BUCKET).upload(objectPath, image.blob, {
+    contentType: image.contentType,
+    upsert: false,
+  })
+  if (error) throw error
+
+  const { data } = client().storage.from(MEDIA_BUCKET).getPublicUrl(objectPath)
+  return data.publicUrl
+}
+
+export const fetchLatestAppRelease = async () => {
+  if (!hasSupabase()) return null
+
+  const { data, error } = await client()
+    .from('mirror_app_releases')
+    .select('*')
+    .eq('is_active', true)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle<MirrorAppReleaseRow>()
+  if (error) throw error
+  if (!data) return null
+  return {
+    version: data.version,
+    apk_url: data.apk_url,
+    page_url: data.page_url,
+    notes: data.notes ?? '',
+    mandatory: Boolean(data.mandatory),
+    source: 'supabase' as const,
+  } satisfies ApiAppRelease
+}
 
 const normalizeEmail = (email: string) => email.trim().toLowerCase()
 
@@ -741,6 +803,7 @@ export const fetchTreePosts = async (token: string) => {
       author: row.author,
       visibility: row.visibility,
       content: row.content,
+      images: row.images ?? [],
       tags: row.tags ?? [],
       status: row.status,
       created_at: row.created_at,
@@ -749,13 +812,13 @@ export const fetchTreePosts = async (token: string) => {
   }
 }
 
-export const createTreePost = async (token: string, content: string, visibility: string, tags: string[]) => {
+export const createTreePost = async (token: string, content: string, visibility: string, tags: string[], images: string[] = []) => {
   if (!hasSupabase()) {
     return request<{ id: string; status: string; moderation: unknown }>(
       '/treehole/posts',
       {
         method: 'POST',
-        body: JSON.stringify({ content, visibility, tags }),
+        body: JSON.stringify({ content, visibility, tags, images }),
       },
       token,
     )
@@ -772,6 +835,7 @@ export const createTreePost = async (token: string, content: string, visibility:
       author: profile.nickname,
       visibility,
       content,
+      images,
       tags,
       status: moderation.status,
       moderation,
@@ -972,6 +1036,33 @@ export const sendConversationMessage = async (token: string, conversationId: str
 }
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
+
+const dataUrlToImageBlob = (dataUrl: string) => {
+  const match = dataUrl.match(/^data:(image\/[a-z0-9.+-]+);base64,(.+)$/i)
+  if (!match) throw new Error('invalid_image_data')
+  const contentType = match[1]
+  const extension =
+    contentType === 'image/jpeg'
+      ? 'jpg'
+      : contentType === 'image/png'
+        ? 'png'
+        : contentType === 'image/webp'
+          ? 'webp'
+          : contentType === 'image/gif'
+            ? 'gif'
+            : 'img'
+  const binary = atob(match[2])
+  const bytes = new Uint8Array(binary.length)
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index)
+  }
+  return { blob: new Blob([bytes], { type: contentType }), contentType, extension }
+}
+
+const randomObjectId = () => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID()
+  return Math.random().toString(36).slice(2, 12)
+}
 
 const isUuid = (value: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)

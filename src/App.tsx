@@ -38,6 +38,7 @@ import {
   createFriendship,
   fetchConversationMessages,
   fetchFriends,
+  fetchLatestAppRelease,
   fetchRecommendations,
   fetchTreePosts,
   loginWithPassword,
@@ -48,6 +49,7 @@ import {
   startConversation,
   submitIdentity,
   updateMe,
+  uploadMediaImage,
   type ApiProfile,
   type ApiMessage,
   type ApiRecommendation,
@@ -65,9 +67,10 @@ type RelationGoal = '亲密关系' | '深度朋友' | '成长伙伴'
 type PrivacyLevel = 'private' | 'friends' | 'public'
 type DimensionKey = 'values' | 'lifestyle' | 'relationship' | 'communication' | 'growth' | 'boundary'
 
-const APP_VERSION = '0.12.3'
+const APP_VERSION = '0.12.4'
 const RELEASES_API_URL = 'https://api.github.com/repos/DrSun111/mirror-isle-pwa/releases/latest'
 const RELEASES_PAGE_URL = 'https://github.com/DrSun111/mirror-isle-pwa/releases/latest'
+const UPDATE_CHECK_TIMEOUT_MS = 6500
 
 interface RegistrationDraft {
   email: string
@@ -191,6 +194,13 @@ interface ConversationPreview {
   lastText: string
   lastAt: string
   unread: number
+}
+
+interface UpdateInfo {
+  version: string
+  apkUrl: string
+  pageUrl: string
+  source: 'supabase' | 'github'
 }
 
 const baseUrl = import.meta.env.BASE_URL
@@ -666,6 +676,69 @@ async function openExternalUrl(url: string) {
   }
 }
 
+async function withTimeout<T>(task: Promise<T>, timeoutMs: number) {
+  let timer = 0
+  try {
+    return await Promise.race([
+      task,
+      new Promise<T>((_, reject) => {
+        timer = window.setTimeout(() => reject(new Error('network_timeout')), timeoutMs)
+      }),
+    ])
+  } finally {
+    window.clearTimeout(timer)
+  }
+}
+
+async function fetchJsonWithTimeout<T>(url: string, timeoutMs: number): Promise<T> {
+  const controller = new AbortController()
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const response = await fetch(url, {
+      headers: { Accept: 'application/vnd.github+json' },
+      signal: controller.signal,
+    })
+    if (!response.ok) throw new Error(`${response.status} ${response.statusText}`)
+    return (await response.json()) as T
+  } finally {
+    window.clearTimeout(timer)
+  }
+}
+
+async function resolveLatestUpdateInfo(): Promise<UpdateInfo | null> {
+  try {
+    const supabaseRelease = await withTimeout(fetchLatestAppRelease(), UPDATE_CHECK_TIMEOUT_MS)
+    if (supabaseRelease?.apk_url) {
+      return {
+        version: supabaseRelease.version.replace(/^v/i, ''),
+        apkUrl: supabaseRelease.apk_url,
+        pageUrl: supabaseRelease.page_url || supabaseRelease.apk_url,
+        source: 'supabase',
+      }
+    }
+  } catch {
+    // GitHub remains a fallback when the Supabase release manifest is temporarily unreachable.
+  }
+
+  const githubRelease = await fetchJsonWithTimeout<{
+    tag_name?: string
+    html_url?: string
+    assets?: Array<{ name?: string; browser_download_url?: string }>
+  }>(RELEASES_API_URL, UPDATE_CHECK_TIMEOUT_MS)
+  const apkUrl = githubRelease.assets?.find((asset) => asset.name?.endsWith('.apk'))?.browser_download_url
+  if (!githubRelease.tag_name || !apkUrl) return null
+  return {
+    version: githubRelease.tag_name.replace(/^v/i, ''),
+    apkUrl,
+    pageUrl: githubRelease.html_url || RELEASES_PAGE_URL,
+    source: 'github',
+  }
+}
+
+function updateEntryUrl(update: UpdateInfo) {
+  return update.source === 'supabase' ? update.apkUrl : update.pageUrl || update.apkUrl || RELEASES_PAGE_URL
+}
+
 function App() {
   const [screen, setScreen] = useState<Screen>('welcome')
   const [authMode, setAuthMode] = useState<AuthMode>('login')
@@ -692,6 +765,7 @@ function App() {
   const [, setBackendState] = useState<'online' | 'offline'>(authToken ? 'online' : 'offline')
   const [apiUser, setApiUser] = useState<ApiUser | null>(null)
   const [toast, setToast] = useState('')
+  const [, setUpdateInfo] = useState<UpdateInfo | null>(null)
 
   useEffect(() => {
     if (profile && !authToken) {
@@ -829,6 +903,12 @@ function App() {
     }
   }
 
+  const uploadPublicProfileImages = async (details: PublicProfileDetails) => {
+    if (!authToken || !details.avatar?.startsWith('data:image')) return details
+    const avatar = await uploadMediaImage(authToken, details.avatar, 'avatars')
+    return { ...details, avatar }
+  }
+
   const completeProfileSetup = async () => {
     if (!authToken) {
       showToast('请先完成邮箱登录')
@@ -844,7 +924,7 @@ function App() {
       return
     }
     try {
-      const publicProfile = publicProfileFromDraft(draft)
+      const publicProfile = await uploadPublicProfileImages(publicProfileFromDraft(draft))
       const result = await updateMe(authToken, {
         nickname: draft.nickname.trim(),
         city: draft.city.trim(),
@@ -867,6 +947,7 @@ function App() {
             }
           : current,
       )
+      setDraft((current) => ({ ...current, avatar: publicProfile.avatar ?? current.avatar }))
       setBackendState('online')
     } catch {
       setBackendState('offline')
@@ -970,33 +1051,43 @@ function App() {
       showToast('请先完成内测登录')
       return
     }
-    const result = await createTreePost(authToken, content, visibility, tags)
-    if (images.length) {
-      setPostImages((current) => ({ ...current, [result.id]: images }))
+    try {
+      const uploadedImages = images.length
+        ? await Promise.all(images.map((image) => uploadMediaImage(authToken, image, 'posts')))
+        : []
+      const result = await createTreePost(authToken, content, visibility, tags, uploadedImages)
+      if (uploadedImages.length) {
+        setPostImages((current) => ({ ...current, [result.id]: uploadedImages }))
+      }
+      await syncBackendData(authToken)
+      if (uploadedImages.length && profile) {
+        setTreePosts((current) => {
+          const existingPost = current.find((post) => post.id === result.id)
+          const nextPost: TreePost = existingPost
+            ? { ...existingPost, images: uploadedImages }
+            : {
+                id: result.id,
+                author: profile.nickname,
+                time: '刚刚',
+                visibility,
+                content,
+                tags,
+                resonance: 0,
+                hugs: 0,
+                experienced: 0,
+                chats: 0,
+                images: uploadedImages,
+              }
+          return [nextPost, ...current.filter((post) => post.id !== result.id)]
+        })
+      }
+      setBackendState('online')
+      showToast(result.status === 'approved' ? '树洞已发布' : '树洞已进入审核')
+    } catch (error) {
+      console.error('publish post failed', error)
+      setBackendState('offline')
+      showToast(images.length ? '图片上传或发布失败，请稍后重试' : '发布失败，请稍后重试')
     }
-    await syncBackendData(authToken)
-    if (images.length && profile) {
-      setTreePosts((current) => {
-        const existingPost = current.find((post) => post.id === result.id)
-        const nextPost: TreePost = existingPost
-          ? { ...existingPost, images }
-          : {
-              id: result.id,
-              author: profile.nickname,
-              time: '刚刚',
-              visibility,
-              content,
-              tags,
-              resonance: 0,
-              hugs: 0,
-              experienced: 0,
-              chats: 0,
-              images,
-            }
-        return [nextPost, ...current.filter((post) => post.id !== result.id)]
-      })
-    }
-    showToast(result.status === 'approved' ? '树洞已发布' : '树洞已进入审核')
   }
 
   const publishArticle = async (title: string, content: string) => {
@@ -1237,10 +1328,10 @@ function App() {
       showToast('请先完成内测登录')
       return
     }
-    const cleanProfile = {
+    const cleanProfile = await uploadPublicProfileImages({
       ...publicProfile,
       intro: publicProfile.intro?.trim() || '希望遇见真实、安静、能慢慢靠近的关系。',
-    }
+    })
     const result = await updateMe(authToken, {
       nickname: nickname.trim(),
       city: city.trim(),
@@ -1277,22 +1368,18 @@ function App() {
 
   const checkForUpdate = useCallback(async (options: { silentWhenLatest?: boolean } = {}) => {
     try {
-      const response = await fetch(RELEASES_API_URL, {
-        headers: { Accept: 'application/vnd.github+json' },
-      })
-      if (!response.ok) throw new Error(`${response.status} ${response.statusText}`)
-      const latest = (await response.json()) as {
-        tag_name?: string
-        html_url?: string
-        assets?: Array<{ name?: string; browser_download_url?: string }>
-      }
-      const latestVersion = (latest.tag_name ?? '').replace(/^v/i, '')
-      const apkUrl = latest.assets?.find((asset) => asset.name?.endsWith('.apk'))?.browser_download_url
-      if (latestVersion && isVersionNewer(latestVersion, APP_VERSION) && apkUrl) {
-        showToast(`发现新版 ${latestVersion}，正在打开下载`)
-        await openExternalUrl(apkUrl)
+      const latest = await resolveLatestUpdateInfo()
+      if (latest?.version && isVersionNewer(latest.version, APP_VERSION)) {
+        setUpdateInfo(latest)
+        if (options.silentWhenLatest) {
+          showToast(`发现新版本 ${latest.version}，可在“我的”里检查更新`)
+          return
+        }
+        showToast(`正在打开新版本 ${latest.version}`)
+        await openExternalUrl(updateEntryUrl(latest))
         return
       }
+      setUpdateInfo(null)
       if (!options.silentWhenLatest) showToast(`已是最新版本 ${APP_VERSION}`)
     } catch {
       if (options.silentWhenLatest) return
@@ -3696,6 +3783,7 @@ function mapApiTreePost(item: ApiTreePost): TreePost {
     time: formatTime(item.created_at),
     visibility: item.visibility as PrivacyLevel,
     content: item.status === 'approved' ? item.content : `${item.content}（审核中）`,
+    images: item.images ?? [],
     tags: item.tags,
     resonance: 0,
     hugs: 0,

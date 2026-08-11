@@ -32,6 +32,7 @@ create table if not exists public.mirror_tree_posts (
   author text not null default '镜屿用户',
   visibility text not null default 'friends' check (visibility in ('private', 'friends', 'public')),
   content text not null check (char_length(content) between 1 and 4000),
+  images text[] not null default '{}',
   tags text[] not null default '{}',
   status text not null default 'approved' check (status in ('approved', 'pending', 'rejected')),
   moderation jsonb not null default '{}',
@@ -294,3 +295,96 @@ for update
 to authenticated
 using (auth.uid() = requester_id or auth.uid() = addressee_id)
 with check (auth.uid() = requester_id or auth.uid() = addressee_id);
+
+create table if not exists public.mirror_app_releases (
+  version text primary key,
+  apk_url text not null,
+  page_url text not null,
+  notes text not null default '',
+  mandatory boolean not null default false,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+alter table public.mirror_tree_posts add column if not exists images text[] not null default '{}';
+
+create index if not exists mirror_app_releases_active_created_idx
+on public.mirror_app_releases (is_active, created_at desc);
+
+alter table public.mirror_app_releases enable row level security;
+
+drop policy if exists "active releases are public" on public.mirror_app_releases;
+create policy "active releases are public"
+on public.mirror_app_releases
+for select
+to anon, authenticated
+using (is_active = true);
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'mirror-media',
+  'mirror-media',
+  true,
+  5242880,
+  array['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+)
+on conflict (id) do update
+set
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'mirror-releases',
+  'mirror-releases',
+  true,
+  52428800,
+  array['application/vnd.android.package-archive', 'application/octet-stream']
+)
+on conflict (id) do update
+set
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "mirror public storage read" on storage.objects;
+create policy "mirror public storage read"
+on storage.objects
+for select
+to public
+using (bucket_id in ('mirror-media', 'mirror-releases'));
+
+drop policy if exists "mirror users upload own media" on storage.objects;
+create policy "mirror users upload own media"
+on storage.objects
+for insert
+to authenticated
+with check (
+  bucket_id = 'mirror-media'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+drop policy if exists "mirror users update own media" on storage.objects;
+create policy "mirror users update own media"
+on storage.objects
+for update
+to authenticated
+using (
+  bucket_id = 'mirror-media'
+  and (storage.foldername(name))[1] = auth.uid()::text
+)
+with check (
+  bucket_id = 'mirror-media'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+drop policy if exists "mirror users delete own media" on storage.objects;
+create policy "mirror users delete own media"
+on storage.objects
+for delete
+to authenticated
+using (
+  bucket_id = 'mirror-media'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
