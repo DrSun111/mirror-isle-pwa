@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { Dispatch, ReactNode, SetStateAction, TouchEvent } from 'react'
+import type { CSSProperties, Dispatch, ReactNode, SetStateAction, TouchEvent } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import {
   Award,
@@ -32,15 +32,13 @@ import {
   fetchConversationMessages,
   fetchRecommendations,
   fetchTreePosts,
-  loginWithPassword,
+  loginWithInvite,
+  registerWithInvite,
   saveAssessment,
   sendConversationMessage,
-  sendLoginCode,
-  setAccountPassword,
   startConversation,
   submitIdentity,
   updateMe,
-  verifyEmailCode,
   type ApiProfile,
   type ApiRecommendation,
   type ApiTreePost,
@@ -51,7 +49,8 @@ type Screen = 'welcome' | 'profile' | 'assessment' | 'app'
 type AuthMode = 'login' | 'register'
 type TabKey = 'meet' | 'tree' | 'growth' | 'messages' | 'me'
 type GrowthPanel = 'home' | 'path' | 'reading' | 'practice' | 'discussion' | 'fellows'
-type MePanel = 'home' | 'saved' | 'privacy'
+type MePanel = 'home' | 'saved' | 'privacy' | 'theme'
+type ThemeKey = 'botanical' | 'starlight' | 'sunset' | 'sky' | 'custom'
 type RelationGoal = '亲密关系' | '深度朋友' | '成长伙伴'
 type PrivacyLevel = 'private' | 'friends' | 'public'
 type DimensionKey = 'values' | 'lifestyle' | 'relationship' | 'communication' | 'growth' | 'boundary'
@@ -59,6 +58,7 @@ type DimensionKey = 'values' | 'lifestyle' | 'relationship' | 'communication' | 
 interface RegistrationDraft {
   email: string
   code: string
+  inviteCode: string
   password: string
   confirmPassword: string
   avatar: string
@@ -151,6 +151,7 @@ const baseUrl = import.meta.env.BASE_URL
 const defaultDraft: RegistrationDraft = {
   email: '',
   code: '',
+  inviteCode: '',
   password: '',
   confirmPassword: '',
   avatar: '澄',
@@ -568,14 +569,21 @@ const practiceItems = [
   { id: 'quiet-review', title: '关系复盘三问', detail: '今天我在哪一刻靠近了自己？哪一刻又忽略了自己？下一次想怎样做？', duration: '约 10 分钟' },
 ]
 
-function formatEmailAuthError(message: string, fallback: string) {
-  const waitSeconds = message.match(/after\s+(\d+)\s+seconds/i)?.[1]
-  if (/over_email_send_rate_limit|security purposes|rate limit|429/i.test(message)) {
-    return waitSeconds ? `验证码发送太频繁，请 ${waitSeconds} 秒后再试` : '验证码发送太频繁，请稍后再试'
-  }
-  if (/network_timeout/i.test(message)) return '邮箱服务连接超时，请换网络后重试'
-  if (/network_unreachable|failed to fetch|network|fetch/i.test(message)) return '邮箱服务连接失败，请换网络后重试'
-  if (/invalid|expired|token/i.test(message)) return '验证码无效或已过期'
+const themeOptions: Array<{ key: ThemeKey; label: string; hint: string; colors: string[] }> = [
+  { key: 'botanical', label: '植物浅绿', hint: '安静、柔和、像一座清晨的岛', colors: ['#dce9dd', '#6d9a87', '#173b61'] },
+  { key: 'starlight', label: '星空浅紫', hint: '克制、神秘、适合夜晚书写', colors: ['#e9e4f7', '#8a78be', '#2f315d'] },
+  { key: 'sunset', label: '黄昏浅红', hint: '温暖、亲近、带一点夕阳感', colors: ['#f5dfd9', '#d9897b', '#6f3b36'] },
+  { key: 'sky', label: '天空浅蓝', hint: '清透、开阔、像云层之后的光', colors: ['#d9effb', '#6aaed6', '#153449'] },
+  { key: 'custom', label: '自定义', hint: '用你自己的颜色重塑镜屿', colors: ['#ddeaf4', '#c59c5b', '#173b61'] },
+]
+
+function formatInviteAuthError(message: string, fallback: string) {
+  if (/invalid_invite_code/i.test(message)) return '邀请码无效，请确认后重试'
+  if (/email_confirmation_still_enabled/i.test(message)) return 'Supabase 仍开启邮箱确认，请先关闭 Confirm email 后再注册'
+  if (/Invalid login credentials/i.test(message)) return '邮箱或邀请码不正确'
+  if (/User already registered|already registered|already exists/i.test(message)) return '该邮箱已注册，请切换到登录'
+  if (/network_timeout/i.test(message)) return '连接超时，请换网络后重试'
+  if (/network_unreachable|failed to fetch|network|fetch/i.test(message)) return '网络连接失败，请换网络后重试'
   return message ? `${fallback}：${message}` : fallback
 }
 
@@ -592,13 +600,14 @@ function App() {
   const [localConversations, setLocalConversations] = useStoredState<Record<string, ChatMessage[]>>('mirror-isle:local-conversations', {})
   const [selectedCandidateId, setSelectedCandidateId] = useStoredState('mirror-isle:selected', candidates[0].id)
   const [questionIndex, setQuestionIndex] = useStoredState('mirror-isle:question-index', 0)
+  const [friendIds, setFriendIds] = useStoredState<string[]>('mirror-isle:friends', [])
+  const [themeKey, setThemeKey] = useStoredState<ThemeKey>('mirror-isle:theme', 'botanical')
+  const [customAccent, setCustomAccent] = useStoredState('mirror-isle:custom-accent', '#6d9a87')
   const [remoteCandidates, setRemoteCandidates] = useState<Array<Candidate & { liveScore: number }> | null>(null)
   const [conversationIds, setConversationIds] = useStoredState<Record<string, string>>('mirror-isle:conversation-ids', {})
   const [, setBackendState] = useState<'online' | 'offline'>(authToken ? 'online' : 'offline')
   const [apiUser, setApiUser] = useState<ApiUser | null>(null)
   const [toast, setToast] = useState('')
-  const [isSendingCode, setIsSendingCode] = useState(false)
-  const [codeCooldown, setCodeCooldown] = useState(0)
 
   useEffect(() => {
     if (profile && !authToken) {
@@ -612,14 +621,6 @@ function App() {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'auto' })
   }, [screen])
-
-  useEffect(() => {
-    if (!codeCooldown) return undefined
-    const timer = window.setInterval(() => {
-      setCodeCooldown((current) => Math.max(0, current - 1))
-    }, 1000)
-    return () => window.clearInterval(timer)
-  }, [codeCooldown])
 
   useEffect(() => {
     if (!toast) return
@@ -660,39 +661,16 @@ function App() {
     }
   }
 
-  const requestLoginCode = async () => {
-    if (!isValidEmail(draft.email)) {
-      showToast('请先填写有效邮箱')
-      return
-    }
-    if (isSendingCode) return
-    if (codeCooldown > 0) {
-      showToast(`验证码已发送，请 ${codeCooldown} 秒后再试`)
-      return
-    }
-    setIsSendingCode(true)
-    try {
-      await sendLoginCode(draft.email)
-      setBackendState('online')
-      showToast('邮箱码已发送')
-      setCodeCooldown(60)
-    } catch (error) {
-      console.error('send login code failed', error)
-      setBackendState('offline')
-      const message = error instanceof Error ? error.message : ''
-      showToast(formatEmailAuthError(message, '邮箱码发送失败'))
-    } finally {
-      setIsSendingCode(false)
-    }
-  }
-
-  const loginWithEmailPassword = async () => {
-    if (!isValidEmail(draft.email) || draft.password.trim().length < 6) {
-      showToast('请填写 QQ 邮箱和至少 6 位密码')
+  const enterWithInvite = async () => {
+    if (!isValidQqEmail(draft.email) || !draft.inviteCode.trim()) {
+      showToast('请填写 QQ 邮箱和邀请码')
       return
     }
     try {
-      const login = await loginWithPassword(draft.email, draft.password)
+      const login =
+        authMode === 'register'
+          ? await registerWithInvite(draft.email, draft.inviteCode)
+          : await loginWithInvite(draft.email, draft.inviteCode)
       const nextProfile = mapApiProfile(login.profile, profile?.avatar ?? draft.avatar)
       setAuthToken(login.token)
       setApiUser(login.user)
@@ -700,6 +678,7 @@ function App() {
       setDraft((current) => ({
         ...current,
         email: draft.email,
+        inviteCode: draft.inviteCode,
         password: '',
         confirmPassword: '',
         avatar: nextProfile.avatar,
@@ -709,43 +688,21 @@ function App() {
         privacy: nextProfile.privacy,
       }))
       setBackendState('online')
-      setActiveTab('meet')
-      setScreen('app')
       void syncBackendData(login.token)
-      showToast('登录成功')
+      if (authMode === 'register' || !login.user.age_confirmed) {
+        setScreen('profile')
+      } else {
+        setActiveTab('meet')
+        setScreen('app')
+      }
+      showToast(authMode === 'register' ? '邀请通过，请设定资料' : '登录成功')
     } catch (error) {
-      console.error('password login failed', error)
-      setBackendState('offline')
-      const message = error instanceof Error ? error.message : ''
-      showToast(formatEmailAuthError(message, '登录失败'))
-    }
-  }
-
-  const verifyEmailAndContinue = async () => {
-    if (!isValidEmail(draft.email) || !draft.code.trim()) {
-      showToast('请填写邮箱和邮箱码')
-      return
-    }
-    try {
-      const login = await verifyEmailCode(draft.email, draft.code.trim())
-      setAuthToken(login.token)
-      setApiUser(login.user)
-      setBackendState('online')
-      setDraft((current) => ({
-        ...current,
-        nickname: current.nickname || login.user.nickname,
-        city: current.city || login.user.city,
-        goal: login.user.goal as RelationGoal,
-        privacy: login.user.privacy as PrivacyLevel,
-      }))
-      setScreen('profile')
-    } catch (error) {
-      console.error('verify login code failed', error)
+      console.error('invite auth failed', error)
       setAuthToken(null)
       setApiUser(null)
       setBackendState('offline')
       const message = error instanceof Error ? error.message : ''
-      showToast(formatEmailAuthError(message, '邮箱码验证失败'))
+      showToast(formatInviteAuthError(message, authMode === 'register' ? '注册失败' : '登录失败'))
     }
   }
 
@@ -759,20 +716,11 @@ function App() {
       showToast('请填写昵称和城市')
       return
     }
-    if (draft.password.trim().length < 6) {
-      showToast('请设置至少 6 位登录密码')
-      return
-    }
-    if (draft.password !== draft.confirmPassword) {
-      showToast('两次输入的密码不一致')
-      return
-    }
     if (!draft.ageConfirmed || !draft.agreement) {
       showToast('请确认年龄与协议后继续')
       return
     }
     try {
-      await setAccountPassword(draft.password)
       const result = await updateMe(authToken, {
         nickname: draft.nickname.trim(),
         city: draft.city.trim(),
@@ -851,6 +799,7 @@ function App() {
     window.localStorage.removeItem('mirror-isle:growth-discussion')
     window.localStorage.removeItem('mirror-isle:fellow-offset')
     window.localStorage.removeItem('mirror-isle:privacy-settings')
+    window.localStorage.removeItem('mirror-isle:friends')
     setProfile(null)
     setAuthToken(null)
     setDraft(defaultDraft)
@@ -861,6 +810,7 @@ function App() {
     setTreePosts(seedTreePosts)
     setRemoteCandidates(null)
     setConversationIds({})
+    setFriendIds([])
     setApiUser(null)
     setBackendState('offline')
     setScreen('welcome')
@@ -875,6 +825,22 @@ function App() {
     const result = await createTreePost(authToken, content, visibility, tags)
     await syncBackendData(authToken)
     showToast(result.status === 'approved' ? '树洞已发布' : '树洞已进入审核')
+  }
+
+  const publishArticle = async (title: string, content: string) => {
+    if (!authToken) {
+      showToast('请先完成内测登录')
+      return
+    }
+    const safeTitle = title.trim()
+    const safeContent = content.trim()
+    if (!safeTitle || !safeContent) {
+      showToast('请填写文章标题和正文')
+      return
+    }
+    const result = await createTreePost(authToken, `《${safeTitle}》\n${safeContent}`, 'public', ['文章', '阅读'])
+    await syncBackendData(authToken)
+    showToast(result.status === 'approved' ? '文章已发布' : '文章已进入审核')
   }
 
   const getConversationId = useCallback(
@@ -945,6 +911,22 @@ function App() {
     }
   }
 
+  const addFriend = async (candidateId: string) => {
+    if (!authToken) {
+      showToast('请先完成内测登录')
+      return
+    }
+    if (!friendIds.includes(candidateId)) {
+      if (!isSampleCandidateId(candidateId)) {
+        await getConversationId(candidateId)
+      }
+      setFriendIds([...friendIds, candidateId])
+    }
+    setSelectedCandidateId(candidateId)
+    setActiveTab('messages')
+    showToast(friendIds.includes(candidateId) ? '已进入朋友对话' : '已添加朋友')
+  }
+
   useEffect(() => {
     if (screen !== 'app' || activeTab !== 'messages' || !selectedCandidate || !authToken) return
     void syncConversationMessages(selectedCandidate.id)
@@ -965,18 +947,14 @@ function App() {
   }
 
   return (
-    <div className={`mirror-app screen-${screen}`}>
+    <div className={`mirror-app screen-${screen} theme-${themeKey}`} style={themeStyle(themeKey, customAccent)}>
       {screen === 'welcome' && (
         <WelcomeScreen
             authMode={authMode}
             draft={draft}
-            isSendingCode={isSendingCode}
-            codeCooldown={codeCooldown}
             setAuthMode={setAuthMode}
             setDraft={setDraft}
-            onSendCode={requestLoginCode}
-            onPasswordLogin={loginWithEmailPassword}
-            onVerify={verifyEmailAndContinue}
+            onEnter={enterWithInvite}
           />
       )}
 
@@ -1009,11 +987,18 @@ function App() {
           rankedCandidates={rankedCandidates}
           treePosts={treePosts}
           chatMessages={chatMessages}
+          friendIds={friendIds}
+          themeKey={themeKey}
+          customAccent={customAccent}
           setActiveTab={setActiveTab}
           setSelectedCandidateId={setSelectedCandidateId}
           setTreePosts={setTreePosts}
+          setThemeKey={setThemeKey}
+          setCustomAccent={setCustomAccent}
           onCreateTreePost={publishTreePost}
+          onCreateArticle={publishArticle}
           onSendMessage={sendRemoteMessage}
+          onAddFriend={addFriend}
           onSubmitIdentity={submitRealIdentity}
           onReset={resetDemo}
           onRetake={() => {
@@ -1033,23 +1018,15 @@ function App() {
 function WelcomeScreen({
   authMode,
   draft,
-  isSendingCode,
-  codeCooldown,
   setAuthMode,
   setDraft,
-  onSendCode,
-  onPasswordLogin,
-  onVerify,
+  onEnter,
 }: {
   authMode: AuthMode
   draft: RegistrationDraft
-  isSendingCode: boolean
-  codeCooldown: number
   setAuthMode: Dispatch<SetStateAction<AuthMode>>
   setDraft: Dispatch<SetStateAction<RegistrationDraft>>
-  onSendCode: () => Promise<void>
-  onPasswordLogin: () => Promise<void>
-  onVerify: () => Promise<void>
+  onEnter: () => Promise<void>
 }) {
   return (
     <main className="entry-screen">
@@ -1078,50 +1055,24 @@ function WelcomeScreen({
             <input
               value={draft.email ?? ''}
               onChange={(event) => setDraft((current) => ({ ...current, email: event.target.value }))}
-              placeholder="you@example.com"
+              placeholder="2805051912@qq.com"
               type="email"
               autoComplete="email"
             />
           </label>
 
-          {authMode === 'login' ? (
-            <>
-              <label>
-                <span>密码</span>
-                <input
-                  value={draft.password}
-                  onChange={(event) => setDraft((current) => ({ ...current, password: event.target.value }))}
-                  placeholder="输入登录密码"
-                  type="password"
-                  autoComplete="current-password"
-                />
-              </label>
-              <button className="primary-button full entry-submit" onClick={onPasswordLogin}>
-                进入镜屿
-              </button>
-            </>
-          ) : (
-            <>
-              <label>
-                <span>邮箱码</span>
-                <div className="code-field">
-              <input
-                value={draft.code}
-                onChange={(event) => setDraft((current) => ({ ...current, code: event.target.value }))}
-                placeholder="6 位验证码"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-              />
-              <button type="button" onClick={onSendCode} disabled={isSendingCode || codeCooldown > 0}>
-                {isSendingCode ? '发送中' : codeCooldown > 0 ? `${codeCooldown}s` : '获取'}
-              </button>
-                </div>
-              </label>
-              <button className="primary-button full entry-submit" onClick={onVerify}>
-                设置基本信息
-              </button>
-            </>
-          )}
+          <label>
+            <span>邀请码</span>
+            <input
+              value={draft.inviteCode}
+              onChange={(event) => setDraft((current) => ({ ...current, inviteCode: event.target.value.toUpperCase() }))}
+              placeholder="JINGYU2026"
+              autoComplete="one-time-code"
+            />
+          </label>
+          <button className="primary-button full entry-submit" onClick={onEnter}>
+            {authMode === 'register' ? '注册并设定资料' : '进入镜屿'}
+          </button>
         </div>
       </section>
     </main>
@@ -1187,27 +1138,6 @@ function ProfileSetupScreen({
               placeholder="上海"
             />
           </label>
-          <label>
-            <span>登录密码</span>
-            <input
-              value={draft.password}
-              onChange={(event) => setDraft((current) => ({ ...current, password: event.target.value }))}
-              placeholder="之后登录只用邮箱和密码"
-              type="password"
-              autoComplete="new-password"
-            />
-          </label>
-          <label>
-            <span>确认密码</span>
-            <input
-              value={draft.confirmPassword}
-              onChange={(event) => setDraft((current) => ({ ...current, confirmPassword: event.target.value }))}
-              placeholder="再输入一次"
-              type="password"
-              autoComplete="new-password"
-            />
-          </label>
-
           <FieldGroup label="当前关系目的">
             <SegmentedControl
               value={draft.goal}
@@ -1381,11 +1311,18 @@ function AppShell({
   rankedCandidates,
   treePosts,
   chatMessages,
+  friendIds,
+  themeKey,
+  customAccent,
   setActiveTab,
   setSelectedCandidateId,
   setTreePosts,
+  setThemeKey,
+  setCustomAccent,
   onCreateTreePost,
+  onCreateArticle,
   onSendMessage,
+  onAddFriend,
   onSubmitIdentity,
   onReset,
   onRetake,
@@ -1397,11 +1334,18 @@ function AppShell({
   rankedCandidates: Array<Candidate & { liveScore: number }>
   treePosts: TreePost[]
   chatMessages: ChatMessage[]
+  friendIds: string[]
+  themeKey: ThemeKey
+  customAccent: string
   setActiveTab: Dispatch<SetStateAction<TabKey>>
   setSelectedCandidateId: Dispatch<SetStateAction<string>>
   setTreePosts: Dispatch<SetStateAction<TreePost[]>>
+  setThemeKey: Dispatch<SetStateAction<ThemeKey>>
+  setCustomAccent: Dispatch<SetStateAction<string>>
   onCreateTreePost: (content: string, visibility: PrivacyLevel, tags: string[]) => Promise<void>
+  onCreateArticle: (title: string, content: string) => Promise<void>
   onSendMessage: (candidateId: string, content: string) => Promise<void>
+  onAddFriend: (candidateId: string) => Promise<void>
   onSubmitIdentity: (realName: string, idNumber: string) => Promise<void>
   onReset: () => void
   onRetake: () => void
@@ -1495,10 +1439,15 @@ function AppShell({
               profile={profile}
               candidate={selectedCandidate}
               isSaved={savedReportIds.includes(selectedCandidate.id)}
+              isFriend={friendIds.includes(selectedCandidate.id)}
               onBack={() => setShowGraph(false)}
               onChat={() => {
                 setShowGraph(false)
                 setActiveTab('messages')
+              }}
+              onAddFriend={() => {
+                setShowGraph(false)
+                void onAddFriend(selectedCandidate.id)
               }}
               onToggleSave={() => toggleSavedReport(selectedCandidate.id)}
             />
@@ -1524,10 +1473,12 @@ function AppShell({
                 <GrowthPage
                   profile={profile}
                   candidates={rankedCandidates}
+                  posts={treePosts}
                   activePanel={growthPanel}
                   plannedPracticeIds={plannedPracticeIds}
                   onOpenPanel={setGrowthPanel}
                   onTogglePractice={togglePractice}
+                  onCreateArticle={onCreateArticle}
                   onOpenCandidate={(candidateId) => {
                     setSelectedCandidateId(candidateId)
                     setShowGraph(true)
@@ -1547,8 +1498,13 @@ function AppShell({
                 <MePage
                   profile={profile}
                   savedCandidates={rankedCandidates.filter((candidate) => savedReportIds.includes(candidate.id))}
+                  friendCandidates={rankedCandidates.filter((candidate) => friendIds.includes(candidate.id))}
                   plannedPracticeCount={plannedPracticeIds.length}
+                  themeKey={themeKey}
+                  customAccent={customAccent}
                   onOpenTab={setActiveTab}
+                  onThemeChange={setThemeKey}
+                  onCustomAccentChange={setCustomAccent}
                   onReset={onReset}
                   onRetake={onRetake}
                   onSubmitIdentity={onSubmitIdentity}
@@ -1653,15 +1609,19 @@ function RelationshipGraph({
   profile,
   candidate,
   isSaved,
+  isFriend,
   onBack,
   onChat,
+  onAddFriend,
   onToggleSave,
 }: {
   profile: Profile
   candidate: Candidate & { liveScore: number }
   isSaved: boolean
+  isFriend: boolean
   onBack: () => void
   onChat: () => void
+  onAddFriend: () => void
   onToggleSave: () => void
 }) {
   return (
@@ -1703,6 +1663,10 @@ function RelationshipGraph({
       </section>
 
       <div className="graph-actions">
+        <button className="secondary-button full" onClick={onAddFriend}>
+          <Users size={18} />
+          {isFriend ? '已是朋友' : '加为朋友'}
+        </button>
         <button className="primary-button full" onClick={onChat}>
           <MessageCircle size={18} />
           开始对话
@@ -1799,19 +1763,23 @@ function TreePage({
 function GrowthPage({
   profile,
   candidates,
+  posts,
   activePanel,
   plannedPracticeIds,
   onOpenPanel,
   onTogglePractice,
+  onCreateArticle,
   onOpenCandidate,
   onToast,
 }: {
   profile: Profile
   candidates: Array<Candidate & { liveScore: number }>
+  posts: TreePost[]
   activePanel: GrowthPanel
   plannedPracticeIds: string[]
   onOpenPanel: (panel: GrowthPanel) => void
   onTogglePractice: (practiceId: string) => void
+  onCreateArticle: (title: string, content: string) => Promise<void>
   onOpenCandidate: (candidateId: string) => void
   onToast: (message: string) => void
 }) {
@@ -1819,6 +1787,12 @@ function GrowthPage({
   const [fellowOffset, setFellowOffset] = useStoredState('mirror-isle:fellow-offset', 0)
   const [discussionDraft, setDiscussionDraft] = useState('')
   const [discussionReplies, setDiscussionReplies] = useStoredState<string[]>('mirror-isle:growth-discussion', [])
+  const [articleTitleDraft, setArticleTitleDraft] = useState('')
+  const [articleBodyDraft, setArticleBodyDraft] = useState('')
+  const articlePosts = posts.filter(isArticlePost)
+  const readingCards = articlePosts.length
+    ? articlePosts.slice(0, 3).map((post) => ({ title: articleTitle(post), meta: `${post.author} · ${post.time}`, brief: articlePreview(post) }))
+    : readingItems
   const visibleFellows = candidates.length
     ? [...candidates.slice(fellowOffset), ...candidates.slice(0, fellowOffset)].slice(0, 2)
     : []
@@ -1833,6 +1807,12 @@ function GrowthPage({
     setDiscussionReplies([discussionDraft.trim(), ...discussionReplies].slice(0, 12))
     setDiscussionDraft('')
     onToast('讨论已发布')
+  }
+
+  const publishArticle = async () => {
+    await onCreateArticle(articleTitleDraft, articleBodyDraft)
+    setArticleTitleDraft('')
+    setArticleBodyDraft('')
   }
 
   if (activePanel !== 'home') {
@@ -1860,18 +1840,36 @@ function GrowthPage({
         )}
 
         {activePanel === 'reading' && (
-          <div className="detail-list">
-            {readingItems.map((item) => (
-              <article className="detail-item" key={item.title}>
-                <BookOpen size={18} />
-                <div>
-                  <strong>{item.title}</strong>
-                  <small>{item.meta}</small>
-                  <p>{item.brief}</p>
-                </div>
-              </article>
-            ))}
-          </div>
+          <>
+            <section className="detail-card article-composer">
+              <span className="eyebrow">创作文章</span>
+              <input
+                value={articleTitleDraft}
+                onChange={(event) => setArticleTitleDraft(event.target.value)}
+                placeholder="标题"
+              />
+              <textarea
+                value={articleBodyDraft}
+                onChange={(event) => setArticleBodyDraft(event.target.value)}
+                placeholder="写一段你真正想留下的话..."
+              />
+              <button className="primary-button full" onClick={publishArticle}>
+                发布文章
+              </button>
+            </section>
+            <div className="detail-list">
+              {readingCards.map((item) => (
+                <article className="detail-item" key={`${item.title}-${item.meta}`}>
+                  <BookOpen size={18} />
+                  <div>
+                    <strong>{item.title}</strong>
+                    <small>{item.meta}</small>
+                    <p>{item.brief}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </>
         )}
 
         {activePanel === 'practice' && (
@@ -1959,7 +1957,7 @@ function GrowthPage({
 
       <SectionTitle title="推荐阅读" icon={BookOpen} action="查看全部" onAction={() => onOpenPanel('reading')} />
       <div className="reading-row">
-        {readingItems.map((item, index) => (
+        {readingCards.map((item, index) => (
           <article key={item.title} className={`reading-card tone-${index + 1}`} onClick={() => onOpenPanel('reading')}>
             <strong>{item.title}</strong>
             <span>{item.meta}</span>
@@ -2009,7 +2007,6 @@ function MessagesPage({
   onOpenGraph: () => void
 }) {
   const [draft, setDraft] = useState('')
-  const sampleCandidate = isSampleCandidateId(candidate.id)
 
   const sendMessage = async () => {
     if (!draft.trim()) return
@@ -2024,39 +2021,19 @@ function MessagesPage({
         <AvatarMark label={candidate.avatar} />
         <div>
           <strong>{candidate.name}</strong>
-          <small>{sampleCandidate ? '样例关系图谱' : '真实内测用户'} · {candidate.liveScore}% 契合</small>
+          <small>{candidate.liveScore}% 契合</small>
         </div>
         <button className="ghost-button" onClick={onOpenGraph}>
-          查看关系图谱
+          图谱
         </button>
       </header>
 
-      <section className="first-meet">
-        <span>第一次相遇</span>
-        {candidate.openers.map((opener, index) => (
-          <button
-            key={`${opener}-${index}`}
-            onClick={() => {
-              setDraft(opener)
-            }}
-          >
-            {opener}
-          </button>
-        ))}
-      </section>
-
       <div className="message-list">
-        {messages.length ? (
-          messages.map((message) => (
-            <div key={message.id} className={message.from === 'me' ? 'message mine' : 'message'}>
-              {message.text}
-            </div>
-          ))
-        ) : (
-          <div className="empty-state">
-            {sampleCandidate ? '这是样例对象，只展示匹配逻辑。邀请真实内测用户完成心谱后即可互发消息。' : '还没有消息，发出第一句真诚的问候。'}
+        {messages.map((message) => (
+          <div key={message.id} className={message.from === 'me' ? 'message mine' : 'message'}>
+            {message.text}
           </div>
-        )}
+        ))}
       </div>
 
       <label className="chat-input">
@@ -2066,7 +2043,7 @@ function MessagesPage({
           onKeyDown={(event) => {
             if (event.key === 'Enter') sendMessage()
           }}
-          placeholder={sampleCandidate ? '样例会话会保存在本机' : '写点真诚的话...'}
+          placeholder="输入消息"
         />
         <button onClick={sendMessage} aria-label="发送消息">
           <Send size={18} />
@@ -2079,8 +2056,13 @@ function MessagesPage({
 function MePage({
   profile,
   savedCandidates,
+  friendCandidates,
   plannedPracticeCount,
+  themeKey,
+  customAccent,
   onOpenTab,
+  onThemeChange,
+  onCustomAccentChange,
   onReset,
   onRetake,
   onSubmitIdentity,
@@ -2088,8 +2070,13 @@ function MePage({
 }: {
   profile: Profile
   savedCandidates: Array<Candidate & { liveScore: number }>
+  friendCandidates: Array<Candidate & { liveScore: number }>
   plannedPracticeCount: number
+  themeKey: ThemeKey
+  customAccent: string
   onOpenTab: Dispatch<SetStateAction<TabKey>>
+  onThemeChange: Dispatch<SetStateAction<ThemeKey>>
+  onCustomAccentChange: Dispatch<SetStateAction<string>>
   onReset: () => void
   onRetake: () => void
   onSubmitIdentity: (realName: string, idNumber: string) => Promise<void>
@@ -2105,6 +2092,14 @@ function MePage({
   })
 
   if (panel !== 'home') {
+    const title = panel === 'saved' ? '我的收藏' : panel === 'privacy' ? '隐私与安全' : '主题外观'
+    const subtitle =
+      panel === 'saved'
+        ? `${savedCandidates.length} 份关系报告 · ${friendCandidates.length} 位朋友`
+        : panel === 'privacy'
+          ? '本机设置即时生效'
+          : '选择镜屿的颜色气质'
+
     return (
       <div className="page-stack me-detail">
         <div className="subpage-head">
@@ -2112,13 +2107,26 @@ function MePage({
             <ChevronRight className="back-icon" size={22} />
           </button>
           <div>
-            <strong>{panel === 'saved' ? '我的收藏' : '隐私与安全'}</strong>
-            <small>{panel === 'saved' ? `${savedCandidates.length} 份关系报告` : '本机设置即时生效'}</small>
+            <strong>{title}</strong>
+            <small>{subtitle}</small>
           </div>
         </div>
 
         {panel === 'saved' && (
           <div className="detail-list">
+            {friendCandidates.length > 0 && (
+              <section className="detail-card">
+                <span className="eyebrow">朋友</span>
+                <div className="friend-mini-list">
+                  {friendCandidates.map((candidate) => (
+                    <span key={candidate.id}>
+                      <AvatarMark label={candidate.avatar} />
+                      {candidate.name}
+                    </span>
+                  ))}
+                </div>
+              </section>
+            )}
             {savedCandidates.length ? (
               savedCandidates.map((candidate) => (
                 <article className="detail-item" key={candidate.id}>
@@ -2159,6 +2167,39 @@ function MePage({
               checked={privacySettings.safeMode}
               onChange={() => setPrivacySettings({ ...privacySettings, safeMode: !privacySettings.safeMode })}
             />
+          </section>
+        )}
+
+        {panel === 'theme' && (
+          <section className="theme-card">
+            <div className="theme-grid">
+              {themeOptions.map((item) => (
+                <button
+                  key={item.key}
+                  className={themeKey === item.key ? 'theme-choice active' : 'theme-choice'}
+                  onClick={() => onThemeChange(item.key)}
+                >
+                  <span className="theme-dots">
+                    {item.colors.map((color) => (
+                      <i key={color} style={{ background: color }} />
+                    ))}
+                  </span>
+                  <strong>{item.label}</strong>
+                  <small>{item.hint}</small>
+                </button>
+              ))}
+            </div>
+            <label className="color-picker-line">
+              <span>自定义主色</span>
+              <input
+                type="color"
+                value={customAccent}
+                onChange={(event) => {
+                  onCustomAccentChange(event.target.value)
+                  onThemeChange('custom')
+                }}
+              />
+            </label>
           </section>
         )}
       </div>
@@ -2206,10 +2247,11 @@ function MePage({
         <MenuButton icon={Users} title="我的关系报告" text={`${savedCandidates.length} 份已收藏报告`} onClick={() => onOpenTab('meet')} />
         <MenuButton icon={MessageCircle} title="我的树洞" text="记录心事，收藏温暖的回应" onClick={() => onOpenTab('tree')} />
         <MenuButton icon={Leaf} title="成长记录" text={`今日计划 ${plannedPracticeCount} 项`} onClick={() => onOpenTab('growth')} />
-        <MenuButton icon={Bookmark} title="收藏" text="收藏的报告会保存到本机" onClick={() => setPanel('saved')} />
+        <MenuButton icon={Bookmark} title="收藏与朋友" text={`${savedCandidates.length} 份收藏 · ${friendCandidates.length} 位朋友`} onClick={() => setPanel('saved')} />
       </section>
 
       <section className="menu-card">
+        <MenuButton icon={Sparkles} title="主题外观" text={themeOptions.find((item) => item.key === themeKey)?.label ?? '自定义'} onClick={() => setPanel('theme')} />
         <MenuButton icon={ShieldCheck} title="隐私与安全" text="管理你的数据与隐私设置" onClick={() => setPanel('privacy')} />
         <MenuButton icon={NotebookTabs} title="重新完成心谱" text="更新你的画像与推荐权重" onClick={onRetake} />
         <MenuButton icon={CircleAlert} title="退出并重新登录" text="清除本机登录状态" onClick={onReset} />
@@ -2478,6 +2520,10 @@ function identityStatusText(status?: string) {
   return '未提交实名信息'
 }
 
+function isValidQqEmail(value: string | undefined) {
+  return /^[1-9]\d{4,11}@qq\.com$/i.test(value?.trim() ?? '')
+}
+
 function growthPanelTitle(panel: GrowthPanel) {
   if (panel === 'path') return '成长路径'
   if (panel === 'reading') return '推荐阅读'
@@ -2492,6 +2538,30 @@ function buildSampleReply(candidate: (Candidate & { liveScore: number }) | undef
   const tag = candidate?.tags[0] ?? '真实表达'
   if (content.length < 12) return `${name}：我收到了。也许可以多说一点，关于“${tag}”的那部分。`
   return `${name}：这句话很真实。我会先记住你的感受，再慢慢回应，不急着给答案。`
+}
+
+function isArticlePost(post: TreePost) {
+  return post.tags.some((tag) => tag.includes('文章') || tag.includes('阅读'))
+}
+
+function articleTitle(post: TreePost) {
+  const match = post.content.match(/^《(.+?)》/)
+  return match?.[1] ?? post.content.split(/\n/)[0].slice(0, 16)
+}
+
+function articlePreview(post: TreePost) {
+  return post.content.replace(/^《.+?》\s*/, '').replace(/\s+/g, ' ').trim().slice(0, 68) || '作者留下了一段安静的文字。'
+}
+
+function themeStyle(theme: ThemeKey, customAccent: string): CSSProperties | undefined {
+  if (theme !== 'custom') return undefined
+  return {
+    '--app-accent': customAccent,
+    '--app-soft': `${customAccent}24`,
+    '--app-soft-strong': `${customAccent}42`,
+    '--entry-a': '#f9fcff',
+    '--entry-b': `${customAccent}26`,
+  } as CSSProperties
 }
 
 function mapApiProfile(item: ApiProfile, avatar = '澄'): Profile {
@@ -2576,10 +2646,6 @@ function formatTime(value: string) {
   if (minutes < 60) return `${minutes} 分钟前`
   if (minutes < 1440) return `${Math.round(minutes / 60)} 小时前`
   return `${Math.round(minutes / 1440)} 天前`
-}
-
-function isValidEmail(value: string | undefined) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value?.trim() ?? '')
 }
 
 function isSampleCandidateId(id: string) {

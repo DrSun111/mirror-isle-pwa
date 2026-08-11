@@ -3,6 +3,10 @@ import { createClient, type SupabaseClient, type User } from '@supabase/supabase
 const REST_API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8008/api'
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
+const INVITE_CODES = (import.meta.env.VITE_INVITE_CODES ?? 'JINGYU2026,MIRROR2026,NEICE2026')
+  .split(',')
+  .map((code: string) => code.trim().toUpperCase())
+  .filter(Boolean)
 
 const supabase: SupabaseClient | null =
   SUPABASE_URL && SUPABASE_ANON_KEY
@@ -258,6 +262,19 @@ const client = () => {
 
 const hasSupabase = () => Boolean(supabase)
 
+const normalizeEmail = (email: string) => email.trim().toLowerCase()
+
+const normalizeInviteCode = (inviteCode: string) => inviteCode.trim().toUpperCase()
+
+const assertInviteCode = (inviteCode: string) => {
+  const normalized = normalizeInviteCode(inviteCode)
+  if (!normalized || !INVITE_CODES.includes(normalized)) throw new Error('invalid_invite_code')
+  return normalized
+}
+
+const invitePassword = (email: string, inviteCode: string) =>
+  `MirrorIsle-${normalizeEmail(email)}-${normalizeInviteCode(inviteCode)}-2026!`
+
 const maskEmail = (email: string) => {
   const [local, domain] = email.split('@')
   if (!domain) return email
@@ -477,6 +494,67 @@ export const loginWithPassword = async (email: string, password: string) => {
 
   const { data, error } = await client().auth.signInWithPassword({
     email: email.trim().toLowerCase(),
+    password,
+  })
+  if (error || !data.session || !data.user) throw error ?? new Error('missing_supabase_session')
+  const profile = await ensureProfile(data.user)
+  return {
+    token: data.session.access_token,
+    user: rowToUser(profile, data.user),
+    profile: rowToProfile(profile, data.user),
+  }
+}
+
+export const registerWithInvite = async (email: string, inviteCode: string) => {
+  const normalizedEmail = normalizeEmail(email)
+  const normalizedInvite = assertInviteCode(inviteCode)
+  const password = invitePassword(normalizedEmail, normalizedInvite)
+
+  if (!hasSupabase()) {
+    return request<{ token: string; user: ApiUser; profile: ApiProfile }>('/auth/invite-register', {
+      method: 'POST',
+      body: JSON.stringify({ email: normalizedEmail, invite_code: normalizedInvite }),
+    })
+  }
+
+  const { data, error } = await client().auth.signUp({
+    email: normalizedEmail,
+    password,
+    options: {
+      data: {
+        invite_code: normalizedInvite,
+        app: 'mirror-isle-beta',
+      },
+    },
+  })
+  if (error || !data.user) throw error ?? new Error('missing_supabase_user')
+
+  if (!data.session) {
+    throw new Error('email_confirmation_still_enabled')
+  }
+
+  const profile = await ensureProfile(data.user)
+  return {
+    token: data.session.access_token,
+    user: rowToUser(profile, data.user),
+    profile: rowToProfile(profile, data.user),
+  }
+}
+
+export const loginWithInvite = async (email: string, inviteCode: string) => {
+  const normalizedEmail = normalizeEmail(email)
+  const normalizedInvite = assertInviteCode(inviteCode)
+  const password = invitePassword(normalizedEmail, normalizedInvite)
+
+  if (!hasSupabase()) {
+    return request<{ token: string; user: ApiUser; profile: ApiProfile }>('/auth/invite-login', {
+      method: 'POST',
+      body: JSON.stringify({ email: normalizedEmail, invite_code: normalizedInvite }),
+    })
+  }
+
+  const { data, error } = await client().auth.signInWithPassword({
+    email: normalizedEmail,
     password,
   })
   if (error || !data.session || !data.user) throw error ?? new Error('missing_supabase_session')
