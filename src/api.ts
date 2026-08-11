@@ -1,8 +1,10 @@
 import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js'
 
+const DEFAULT_SUPABASE_URL = 'https://mvbjhesgjwcyzqavqoyv.supabase.co'
+const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_pg7-4rkL_qLLBV0iHBK2pw_qTFYV4E_'
 const REST_API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8008/api'
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY
 const INVITE_CODE_SOURCE = import.meta.env.VITE_INVITE_CODES?.trim() || 'JINGYU2026,MIRROR2026,NEICE2026'
 const INVITE_CODES = INVITE_CODE_SOURCE
   .split(',')
