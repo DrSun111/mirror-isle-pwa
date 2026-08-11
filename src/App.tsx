@@ -61,7 +61,7 @@ type RelationGoal = '亲密关系' | '深度朋友' | '成长伙伴'
 type PrivacyLevel = 'private' | 'friends' | 'public'
 type DimensionKey = 'values' | 'lifestyle' | 'relationship' | 'communication' | 'growth' | 'boundary'
 
-const APP_VERSION = '0.12.0'
+const APP_VERSION = '0.12.1'
 const RELEASES_API_URL = 'https://api.github.com/repos/DrSun111/mirror-isle-pwa/releases/latest'
 const RELEASES_PAGE_URL = 'https://github.com/DrSun111/mirror-isle-pwa/releases/latest'
 
@@ -700,8 +700,8 @@ function App() {
   }
 
   const enterAccount = async () => {
-    if (!isValidQqEmail(draft.email)) {
-      showToast('请填写 QQ 邮箱')
+    if (!isValidEmail(draft.email)) {
+      showToast('请填写有效邮箱')
       return
     }
     if (draft.password.trim().length < 6) {
@@ -1152,7 +1152,7 @@ function WelcomeScreen({
             <input
               value={draft.email ?? ''}
               onChange={(event) => setDraft((current) => ({ ...current, email: event.target.value }))}
-              placeholder="2805051912@qq.com"
+              placeholder="you@example.com"
               type="email"
               autoComplete="email"
             />
@@ -2232,7 +2232,7 @@ function MessagesPage({
             onKeyDown={(event) => {
               if (event.key === 'Enter') void search()
             }}
-            placeholder="QQ邮箱或用户ID"
+            placeholder="邮箱或用户 ID"
           />
           <button onClick={() => void search()} disabled={isSearching}>
             {isSearching ? '搜索中' : '搜索'}
@@ -2272,7 +2272,7 @@ function MessagesPage({
               </button>
             ))
           ) : (
-            <div className="compact-empty">搜索 QQ 邮箱或用户 ID 添加好友</div>
+            <div className="compact-empty">搜索邮箱或用户 ID 添加好友</div>
           )}
         </div>
       </section>
@@ -2797,8 +2797,8 @@ function identityStatusText(status?: string) {
   return '未提交实名信息'
 }
 
-function isValidQqEmail(value: string | undefined) {
-  return /^[1-9]\d{4,11}@qq\.com$/i.test(value?.trim() ?? '')
+function isValidEmail(value: string | undefined) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value?.trim() ?? '')
 }
 
 function growthPanelTitle(panel: GrowthPanel) {
