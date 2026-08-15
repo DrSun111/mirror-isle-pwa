@@ -3,47 +3,46 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="theme-color" content="#edf4ed" />
+  <meta name="theme-color" content="#f8efe7" />
   <title>镜屿 · 安装</title>
   <style>
-    :root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;color:#304b3d;background:#f4f7f2}
-    *{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 80% 0,#e2eee0,transparent 36%),linear-gradient(180deg,#f8faf6,#eef4ed)}
+    :root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;color:#4b4038;background:#fffaf4}
+    *{box-sizing:border-box}body{margin:0;min-height:100dvh;background:radial-gradient(circle at 82% 0,#f3d9cb,transparent 34%),linear-gradient(160deg,#fffaf4,#f8efe6 68%,#edf3eb)}
     main{width:min(92vw,560px);margin:0 auto;padding:max(42px,env(safe-area-inset-top)) 0 max(40px,env(safe-area-inset-bottom))}
-    .mark{width:72px;height:72px;display:grid;place-items:center;margin-bottom:24px;border-radius:24px;background:#fff;box-shadow:0 18px 50px #45614d1c;font-family:serif;font-size:24px;font-weight:700}
-    h1{margin:0 0 10px;font-family:serif;font-size:36px;line-height:1.15}p{margin:0;color:#74847a;line-height:1.75}
-    .card{margin-top:26px;padding:18px;background:#ffffffde;border:1px solid #49645212;border-radius:24px;box-shadow:0 20px 60px #38524110}
-    .status{font-size:12px;color:#7b8a81}.actions{display:grid;gap:10px;margin-top:18px}.btn{display:flex;align-items:center;justify-content:center;min-height:50px;padding:0 18px;border-radius:15px;text-decoration:none;font-weight:700;border:0;cursor:pointer}.primary{color:#fff;background:#688d78}.secondary{color:#4c6657;background:#edf4ee}
-    .steps{display:grid;gap:9px;margin-top:18px}.step{padding:12px 13px;background:#f6f8f4;border-radius:14px;font-size:13px;line-height:1.55}.muted{margin-top:16px;font-size:11px;color:#8b978f}.hide{display:none!important}
+    .mark{width:72px;height:72px;display:grid;place-items:center;margin-bottom:24px;border-radius:24px;background:#fff;box-shadow:0 18px 50px #7358471c;font-family:serif;font-size:24px;font-weight:700}
+    h1{margin:0 0 10px;font-family:"Songti SC",serif;font-size:36px;line-height:1.15}p{margin:0;color:#8c7d74;line-height:1.75}
+    .card{margin-top:26px;padding:18px;background:#ffffffdf;border:1px solid #765b4a12;border-radius:24px;box-shadow:0 20px 60px #6f4d3910}
+    .status{font-size:12px;color:#918179}.actions{display:grid;gap:10px;margin-top:18px}.btn{display:flex;align-items:center;justify-content:center;min-height:50px;padding:0 18px;border-radius:15px;text-decoration:none;font-weight:700;border:0;cursor:pointer}.primary{color:#fff;background:linear-gradient(135deg,#df9a7d,#c98066)}.secondary{color:#5f6f64;background:#edf3eb}
+    .steps{display:grid;gap:9px;margin-top:18px}.step{padding:12px 13px;background:#faf5ef;border-radius:14px;font-size:13px;line-height:1.55}.muted{margin-top:16px;font-size:11px;color:#95877f}.hide{display:none!important}
   </style>
 </head>
 <body>
 <main>
   <div class="mark">镜屿</div>
-  <h1>寻找世界上另一个自己</h1>
-  <p>镜屿测试版安装中心。页面会根据你的设备自动给出合适的安装方式。</p>
+  <h1>温柔连接，彼此看见</h1>
+  <p>镜屿安装中心。Android 默认使用镜屿备用下载源，不再依赖 GitHub API 检查版本。</p>
   <section class="card">
-    <div class="status" id="status">正在检查最新版本…</div>
+    <div class="status" id="status">当前版本 v0.17.1</div>
     <div class="actions">
-      <a class="btn primary hide" id="android" href="#">下载 Android APK</a>
-      <a class="btn primary hide" id="openapp" href="../">打开镜屿网页版</a>
+      <a class="btn primary" id="android" href="https://mvbjhesgjwcyzqavqoyv.supabase.co/storage/v1/object/public/mirror-releases/mirror-isle-v0.17.1.apk">下载 Android APK</a>
+      <a class="btn secondary" id="openapp" href="../">打开镜屿网页版</a>
       <button class="btn secondary hide" id="ioshelp">iPhone / iPad 安装方法</button>
     </div>
     <div class="steps hide" id="iossteps">
       <div class="step">1. 用 Safari 打开本页面。</div>
       <div class="step">2. 点击 Safari 底部“分享”。</div>
       <div class="step">3. 选择“添加到主屏幕”，即可像普通 App 一样启动镜屿。</div>
-      <div class="step">原生 iOS/TestFlight 版本需 Apple Developer 签名后发布；安装站会在签名版本可用后自动增加 TestFlight 入口。</div>
+      <div class="step">原生 iOS/TestFlight 版本需要 Apple Developer 签名后发布。</div>
     </div>
-    <div class="muted">Android APK 来自镜屿 GitHub Release。iOS 当前提供 PWA 主屏幕安装，原生工程已进入构建流程。</div>
+    <div class="muted">v0.17.1 修复登录按钮重复提交引起的卡顿，并减少登录后的后台轮询。中国大陆正式规模发布仍建议迁移到已备案域名与国内对象存储/CDN。</div>
   </section>
 </main>
 <script>
-const status=document.getElementById('status'),android=document.getElementById('android'),ioshelp=document.getElementById('ioshelp'),iossteps=document.getElementById('iossteps'),openapp=document.getElementById('openapp');
+const status=document.getElementById('status'),ioshelp=document.getElementById('ioshelp'),iossteps=document.getElementById('iossteps');
 const ua=navigator.userAgent;const isiOS=/iPhone|iPad|iPod/i.test(ua);const isAndroid=/Android/i.test(ua);
-openapp.classList.remove('hide');
-if(isiOS){ioshelp.classList.remove('hide');status.textContent='检测到 iPhone / iPad';}
+if(isiOS){ioshelp.classList.remove('hide');status.textContent='检测到 iPhone / iPad · 当前提供主屏幕安装';}
+else if(isAndroid){status.textContent='检测到 Android · v0.17.1';}
 ioshelp?.addEventListener('click',()=>iossteps.classList.toggle('hide'));
-fetch('https://api.github.com/repos/DrSun111/mirror-isle-pwa/releases/latest').then(r=>r.json()).then(data=>{const asset=(data.assets||[]).find(x=>String(x.name||'').endsWith('.apk'));if(asset){android.href=asset.browser_download_url;android.classList.remove('hide');status.textContent=isAndroid?'检测到 Android · 可下载最新 APK':`最新版本 ${data.tag_name||''}`;}else if(!isiOS){status.textContent='最新 APK 正在发布，请稍后刷新';}}).catch(()=>{if(!isiOS)status.textContent='暂时无法检查 APK，请稍后刷新';});
 </script>
 </body>
 </html>
