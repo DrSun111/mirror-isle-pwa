@@ -8,6 +8,7 @@ on:
       - feature/realtime-drift-wallet-forest-v014
       - feature/market-ready-auth-mobile-ios-v015
       - feature/warm-psychometric-online-v016
+      - feature/v017-seen-mood-calendar
     tags:
       - "v*"
   workflow_dispatch:
@@ -87,15 +88,16 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           ASSET="mirror-isle-${VERSION}.apk"
+          NOTES="每日心情升级为账号同步月历历史；树洞主入口升级为‘看见’，包含竖排的树洞、世界、好友三个独立窗口；整体采用更温暖唯美的树影、微风与柔和留白视觉，同时保留真实用户、真实树洞与好友数据。"
           if gh release view "$VERSION" --repo "${{ github.repository }}" >/dev/null 2>&1; then
             gh release upload "$VERSION" "$ASSET" --clobber --repo "${{ github.repository }}"
             gh release edit "$VERSION" --repo "${{ github.repository }}" \
               --title "镜屿 ${VERSION}" \
-              --notes "温馨场景化人格测评、全账号同步心情/树洞/漂流海/回信、手机端安全区优化、邀请码免邮箱验证注册与 iOS 工程。"
+              --notes "$NOTES"
           else
             gh release create "$VERSION" "$ASSET" \
               --target "${GITHUB_SHA}" \
               --repo "${{ github.repository }}" \
               --title "镜屿 ${VERSION}" \
-              --notes "温馨场景化人格测评、全账号同步心情/树洞/漂流海/回信、手机端安全区优化、邀请码免邮箱验证注册与 iOS 工程。"
+              --notes "$NOTES"
           fi
