@@ -7,7 +7,6 @@ import {
   Heart,
   Leaf,
   MessageCircle,
-  Moon,
   PenLine,
   Plus,
   Send,
@@ -18,7 +17,6 @@ import {
 } from 'lucide-react'
 import { createTreePost, fetchTreePosts, type ApiTreePost } from './api'
 import {
-  emptyExperienceState,
   fetchDriftBottleReplies,
   fetchExperienceState,
   fetchRandomDriftBottle,
