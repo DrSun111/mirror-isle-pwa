@@ -1,0 +1,49 @@
+name: Prepare iOS Project
+
+on:
+  push:
+    branches:
+      - main
+      - feature/market-ready-auth-mobile-ios-v015
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ios-project:
+    runs-on: macos-latest
+    env:
+      VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+      VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Capacitor iOS tooling
+        run: npm install --no-save @capacitor/ios@8.5.0
+      - name: Build web assets
+        run: npm run build:pwa
+      - name: Create iOS native project
+        run: npx cap add ios
+      - name: Sync iOS
+        run: npx cap sync ios
+      - name: Build unsigned simulator app
+        run: |
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build
+      - name: Package iOS project
+        run: ditto -c -k --sequesterRsrc --keepParent ios mirror-isle-ios-project.zip
+      - name: Upload iOS project
+        uses: actions/upload-artifact@v4
+        with:
+          name: mirror-isle-ios-project
+          path: mirror-isle-ios-project.zip

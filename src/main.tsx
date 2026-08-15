@@ -4,6 +4,7 @@ import './index.css'
 import App from './App.tsx'
 import ExperienceV014 from './ExperienceV014.tsx'
 import DriftInboxLayer from './DriftInboxLayer.tsx'
+import MarketReadyLayer from './MarketReadyLayer.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -11,6 +12,7 @@ createRoot(document.getElementById('root')!).render(
       <App />
       <ExperienceV014 />
       <DriftInboxLayer />
+      <MarketReadyLayer />
     </>
   </StrictMode>,
 )
