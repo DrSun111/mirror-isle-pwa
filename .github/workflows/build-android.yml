@@ -11,6 +11,8 @@ on:
       - feature/v017-seen-mood-calendar
     tags:
       - "v*"
+    paths-ignore:
+      - ".github/**"
   workflow_dispatch:
 
 permissions:
