@@ -6,6 +6,7 @@ on:
       - main
       - feature/mood-treehole-bottles-v013
       - feature/realtime-drift-wallet-forest-v014
+      - feature/market-ready-auth-mobile-ios-v015
     tags:
       - "v*"
   workflow_dispatch:
@@ -20,7 +21,6 @@ jobs:
       VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
       VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
       VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
-      VITE_INVITE_CODES: ${{ vars.VITE_INVITE_CODES }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -71,5 +71,5 @@ jobs:
         run: |
           gh release create "${{ github.ref_name }}" "mirror-isle-beta-${{ github.ref_name }}.apk" \
             --repo "${{ github.repository }}" \
-            --title "镜屿内测版 ${{ github.ref_name }}" \
-            --notes "真实交互与手机端紧凑排版优化版本。"
+            --title "镜屿 ${{ github.ref_name }}" \
+            --notes "邀请码免验证注册、真实手机端导航、漂流海与账户同步、安装站和 iOS 工程准备版本。"
