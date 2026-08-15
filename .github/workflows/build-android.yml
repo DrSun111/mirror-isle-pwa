@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - feature/mood-treehole-bottles-v013
     tags:
       - "v*"
   workflow_dispatch:
