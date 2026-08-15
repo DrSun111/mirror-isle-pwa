@@ -2,13 +2,13 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
-import EnhancementLayer from './EnhancementLayer.tsx'
+import ExperienceV014 from './ExperienceV014.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <>
       <App />
-      <EnhancementLayer />
+      <ExperienceV014 />
     </>
   </StrictMode>,
 )
