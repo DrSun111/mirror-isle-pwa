@@ -56,26 +56,16 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 420
           script: |
-            set -e
             adb wait-for-device
             until adb shell cmd package list packages >/dev/null 2>&1; do sleep 2; done
             adb install --no-streaming -r android/app/build/outputs/apk/debug/app-debug.apk
             adb shell pm clear com.mirrorisle.beta >/dev/null
             adb logcat -c
-            adb logcat -v threadtime > mirror-logcat.txt 2>&1 &
-            LOGCAT_PID=$!
-            START_OUTPUT="$(adb shell am start -W -n com.mirrorisle.beta/.MainActivity)"
-            echo "$START_OUTPUT"
-            echo "$START_OUTPUT" | grep -q 'Status: ok'
+            adb shell am start -W -n com.mirrorisle.beta/.MainActivity | tee mirror-start.txt
+            grep -q 'Status: ok' mirror-start.txt
             sleep 6
-            APP_PID="$(adb shell pidof com.mirrorisle.beta | tr -d '\r')"
-            test -n "$APP_PID"
-            echo "Mirror Isle process is alive: $APP_PID"
-            kill "$LOGCAT_PID" >/dev/null 2>&1 || true
-            sleep 1
-            if grep -E 'FATAL EXCEPTION.*com\.mirrorisle\.beta|Process: com\.mirrorisle\.beta.*FATAL' mirror-logcat.txt; then
-              cat mirror-logcat.txt
-              exit 1
-            fi
+            adb shell pidof com.mirrorisle.beta | grep -Eq '[0-9]+'
+            adb logcat -d -t 1000 > mirror-logcat.txt
+            if grep -E 'FATAL EXCEPTION.*com\.mirrorisle\.beta|Process: com\.mirrorisle\.beta.*FATAL' mirror-logcat.txt; then cat mirror-logcat.txt; exit 1; fi
             grep -E 'Capacitor|com\.mirrorisle\.beta|chromium' mirror-logcat.txt | tail -120 || true
             echo "Mirror Isle launched successfully and remained alive with no fatal application crash."
