@@ -189,10 +189,11 @@ function applyForestStoryCopy() {
   const construct = card.querySelector<HTMLElement>('.question-construct')
   const question = card.querySelector<HTMLElement>('h2')
   const subtitle = panel.querySelector<HTMLElement>('.assessment-title p')
-  titleNode.textContent = `心林漫游 · ${index + 1} / ${forestStory.length}`
-  if (construct) construct.textContent = copy.chapter
-  if (question) question.textContent = copy.title
-  if (subtitle) subtitle.textContent = copy.subtitle
+  const nextTitle = `心林漫游 · ${index + 1} / ${forestStory.length}`
+  if (titleNode.textContent !== nextTitle) titleNode.textContent = nextTitle
+  if (construct && construct.textContent !== copy.chapter) construct.textContent = copy.chapter
+  if (question && question.textContent !== copy.title) question.textContent = copy.title
+  if (subtitle && subtitle.textContent !== copy.subtitle) subtitle.textContent = copy.subtitle
 
   const buttons = [...card.querySelectorAll<HTMLButtonElement>('.option-card')]
   buttons.forEach((button, optionIndex) => {
@@ -200,8 +201,8 @@ function applyForestStoryCopy() {
     if (!option) return
     const strong = button.querySelector<HTMLElement>('strong')
     const span = button.querySelector<HTMLElement>('span')
-    if (strong) strong.textContent = option[0]
-    if (span) span.textContent = option[1]
+    if (strong && strong.textContent !== option[0]) strong.textContent = option[0]
+    if (span && span.textContent !== option[1]) span.textContent = option[1]
   })
 
   let trail = panel.querySelector<HTMLElement>('.v014-forest-trail')
@@ -211,7 +212,8 @@ function applyForestStoryCopy() {
     const questionCard = panel.querySelector('.question-card')
     questionCard?.parentElement?.insertBefore(trail, questionCard)
   }
-  trail.textContent = `你正在沿着同一段故事继续向前 · ${copy.chapter}`
+  const nextTrail = `你正在沿着同一段故事继续向前 · ${copy.chapter}`
+  if (trail.textContent !== nextTrail) trail.textContent = nextTrail
 }
 
 function ExperienceV014() {
