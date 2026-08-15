@@ -1,4 +1,4 @@
-import { Component, lazy, Suspense } from 'react'
+import { Component, lazy, Suspense, useEffect, useState } from 'react'
 import type { ErrorInfo, ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Capacitor } from '@capacitor/core'
@@ -64,17 +64,45 @@ class BootBoundary extends Component<{ children: ReactNode }, { failed: boolean 
   }
 }
 
+function DeferredEnhancements() {
+  const [enabled, setEnabled] = useState(false)
+
+  useEffect(() => {
+    let attempts = 0
+    const check = () => {
+      attempts += 1
+      const appIsOpen = Boolean(document.querySelector('.bottom-tabs'))
+      if (appIsOpen) {
+        window.setTimeout(() => setEnabled(true), 1200)
+        return true
+      }
+      return attempts >= 60
+    }
+
+    if (check()) return
+    const timer = window.setInterval(() => {
+      if (check()) window.clearInterval(timer)
+    }, 500)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  if (!enabled) return null
+  return (
+    <LayerBoundary>
+      <Suspense fallback={null}>
+        <V017Layer />
+      </Suspense>
+    </LayerBoundary>
+  )
+}
+
 const root = document.getElementById('root')
 if (root) {
   createRoot(root).render(
     <BootBoundary>
       <NativeBootGuard />
       <App />
-      <LayerBoundary>
-        <Suspense fallback={null}>
-          <V017Layer />
-        </Suspense>
-      </LayerBoundary>
+      <DeferredEnhancements />
     </BootBoundary>,
   )
 }
