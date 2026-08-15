@@ -1,0 +1,24 @@
+.entry-submit.auth-request-pending,
+.entry-submit.auth-request-pending:disabled {
+  cursor: wait;
+  opacity: .78;
+  filter: saturate(.86);
+  box-shadow: none;
+}
+
+.entry-submit.auth-request-pending::after {
+  content: '';
+  width: 14px;
+  height: 14px;
+  margin-left: 8px;
+  display: inline-block;
+  vertical-align: -2px;
+  border: 2px solid rgba(255,255,255,.48);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: mirror-auth-spin .75s linear infinite;
+}
+
+@keyframes mirror-auth-spin {
+  to { transform: rotate(360deg); }
+}
