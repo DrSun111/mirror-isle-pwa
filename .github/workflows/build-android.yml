@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - feature/mood-treehole-bottles-v013
+      - feature/realtime-drift-wallet-forest-v014
     tags:
       - "v*"
   workflow_dispatch:
