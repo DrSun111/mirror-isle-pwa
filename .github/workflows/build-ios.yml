@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - feature/market-ready-auth-mobile-ios-v015
+      - feature/warm-psychometric-online-v016
     tags:
       - "v*"
   workflow_dispatch:

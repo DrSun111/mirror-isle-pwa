@@ -7,6 +7,7 @@ on:
       - feature/mood-treehole-bottles-v013
       - feature/realtime-drift-wallet-forest-v014
       - feature/market-ready-auth-mobile-ios-v015
+      - feature/warm-psychometric-online-v016
     tags:
       - "v*"
   workflow_dispatch:
@@ -90,11 +91,11 @@ jobs:
             gh release upload "$VERSION" "$ASSET" --clobber --repo "${{ github.repository }}"
             gh release edit "$VERSION" --repo "${{ github.repository }}" \
               --title "镜屿 ${VERSION}" \
-              --notes "邀请码免邮箱验证注册、移动端全屏模块化导航、真实漂流海与账户心贝、隐私/RLS 加固、安装站和 iOS 工程。"
+              --notes "温馨场景化人格测评、全账号同步心情/树洞/漂流海/回信、手机端安全区优化、邀请码免邮箱验证注册与 iOS 工程。"
           else
             gh release create "$VERSION" "$ASSET" \
               --target "${GITHUB_SHA}" \
               --repo "${{ github.repository }}" \
               --title "镜屿 ${VERSION}" \
-              --notes "邀请码免邮箱验证注册、移动端全屏模块化导航、真实漂流海与账户心贝、隐私/RLS 加固、安装站和 iOS 工程。"
+              --notes "温馨场景化人格测评、全账号同步心情/树洞/漂流海/回信、手机端安全区优化、邀请码免邮箱验证注册与 iOS 工程。"
           fi
