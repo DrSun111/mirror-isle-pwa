@@ -12,7 +12,7 @@ permissions:
 jobs:
   smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     env:
       VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
       VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
@@ -39,21 +39,34 @@ jobs:
       - name: Build debug APK
         working-directory: android
         run: chmod +x gradlew && ./gradlew assembleDebug
+      - name: Enable KVM acceleration
+        run: |
+          if [ -e /dev/kvm ]; then
+            sudo chmod 666 /dev/kvm
+            ls -l /dev/kvm
+          else
+            echo "/dev/kvm is unavailable on this runner"
+          fi
       - name: Boot app in emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
+          api-level: 34
           arch: x86_64
           profile: pixel_6
           disable-animations: true
+          emulator-boot-timeout: 420
           script: |
-            adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+            adb wait-for-device
+            until adb shell cmd package list packages >/dev/null 2>&1; do sleep 2; done
+            adb install --no-streaming -r android/app/build/outputs/apk/debug/app-debug.apk
             adb shell am force-stop com.mirrorisle.beta
+            adb logcat -c
             adb shell monkey -p com.mirrorisle.beta -c android.intent.category.LAUNCHER 1
-            sleep 8
+            sleep 10
             adb shell dumpsys activity activities | grep -q 'com.mirrorisle.beta/.MainActivity'
             adb shell uiautomator dump /sdcard/window.xml
             adb pull /sdcard/window.xml window.xml
             cat window.xml
-            if grep -q 'has stopped\|isn.t responding' window.xml; then exit 1; fi
-            adb logcat -d -t 400 | grep -E 'FATAL EXCEPTION|AndroidRuntime|chromium.*ERROR' || true
+            if grep -Eqi 'has stopped|isn.t responding|keeps stopping' window.xml; then exit 1; fi
+            if adb logcat -d -t 800 | grep -E 'FATAL EXCEPTION.*com\.mirrorisle\.beta|Process: com\.mirrorisle\.beta.*FATAL'; then exit 1; fi
+            echo "Mirror Isle MainActivity is active with no fatal application crash detected."
