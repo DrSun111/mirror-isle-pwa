@@ -20,28 +20,28 @@
 <main>
   <div class="mark">镜屿</div>
   <h1>温柔连接，彼此看见</h1>
-  <p>镜屿安装中心。Android 默认使用镜屿备用下载源，不再依赖 GitHub API 检查版本。</p>
+  <p>镜屿稳定版安装中心。Android 使用固定备用下载地址，不需要访问 GitHub API。</p>
   <section class="card">
-    <div class="status" id="status">当前版本 v0.17.1</div>
+    <div class="status" id="status">当前版本 v0.17.2</div>
     <div class="actions">
-      <a class="btn primary" id="android" href="https://mvbjhesgjwcyzqavqoyv.supabase.co/storage/v1/object/public/mirror-releases/mirror-isle-v0.17.1.apk">下载 Android APK</a>
+      <a class="btn primary" id="android" href="https://mvbjhesgjwcyzqavqoyv.supabase.co/storage/v1/object/public/mirror-releases/mirror-isle-latest.apk">下载 Android APK</a>
       <a class="btn secondary" id="openapp" href="../">打开镜屿网页版</a>
       <button class="btn secondary hide" id="ioshelp">iPhone / iPad 安装方法</button>
     </div>
     <div class="steps hide" id="iossteps">
       <div class="step">1. 用 Safari 打开本页面。</div>
       <div class="step">2. 点击 Safari 底部“分享”。</div>
-      <div class="step">3. 选择“添加到主屏幕”，即可像普通 App 一样启动镜屿。</div>
+      <div class="step">3. 选择“添加到主屏幕”。</div>
       <div class="step">原生 iOS/TestFlight 版本需要 Apple Developer 签名后发布。</div>
     </div>
-    <div class="muted">v0.17.1 修复登录按钮重复提交引起的卡顿，并减少登录后的后台轮询。中国大陆正式规模发布仍建议迁移到已备案域名与国内对象存储/CDN。</div>
+    <div class="muted">v0.17.2 将启动逻辑收敛为单一主应用 + 单一最新版增强层，并增加启动错误恢复页，优先解决 Android WebView 打不开或白屏问题。</div>
   </section>
 </main>
 <script>
 const status=document.getElementById('status'),ioshelp=document.getElementById('ioshelp'),iossteps=document.getElementById('iossteps');
 const ua=navigator.userAgent;const isiOS=/iPhone|iPad|iPod/i.test(ua);const isAndroid=/Android/i.test(ua);
 if(isiOS){ioshelp.classList.remove('hide');status.textContent='检测到 iPhone / iPad · 当前提供主屏幕安装';}
-else if(isAndroid){status.textContent='检测到 Android · v0.17.1';}
+else if(isAndroid){status.textContent='检测到 Android · v0.17.2';}
 ioshelp?.addEventListener('click',()=>iossteps.classList.toggle('hide'));
 </script>
 </body>

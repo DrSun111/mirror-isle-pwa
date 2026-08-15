@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mirror-isle-pwa-v0171'
+const CACHE_NAME = 'mirror-isle-pwa-v0172'
 const APP_SHELL = [
   './',
   './manifest.webmanifest',
