@@ -20,9 +20,9 @@
 <main>
   <div class="mark">镜屿</div>
   <h1>温柔连接，彼此看见</h1>
-  <p>镜屿稳定版安装中心。Android 使用固定备用下载地址，不需要访问 GitHub API。</p>
+  <p>镜屿 Android 稳定性修复版。建议先卸载旧测试版，再安装最新版。</p>
   <section class="card">
-    <div class="status" id="status">当前版本 v0.17.2</div>
+    <div class="status" id="status">当前版本 v0.17.4</div>
     <div class="actions">
       <a class="btn primary" id="android" href="https://mvbjhesgjwcyzqavqoyv.supabase.co/storage/v1/object/public/mirror-releases/mirror-isle-latest.apk">下载 Android APK</a>
       <a class="btn secondary" id="openapp" href="../">打开镜屿网页版</a>
@@ -34,14 +34,14 @@
       <div class="step">3. 选择“添加到主屏幕”。</div>
       <div class="step">原生 iOS/TestFlight 版本需要 Apple Developer 签名后发布。</div>
     </div>
-    <div class="muted">v0.17.2 将启动逻辑收敛为单一主应用 + 单一最新版增强层，并增加启动错误恢复页，优先解决 Android WebView 打不开或白屏问题。</div>
+    <div class="muted">v0.17.4：原生端不再注册 PWA Service Worker；增加启动看门狗与自动修复入口；扩展界面延迟到登录后加载；登录认证请求增加超时保护，避免网络不佳时一直卡住。</div>
   </section>
 </main>
 <script>
 const status=document.getElementById('status'),ioshelp=document.getElementById('ioshelp'),iossteps=document.getElementById('iossteps');
 const ua=navigator.userAgent;const isiOS=/iPhone|iPad|iPod/i.test(ua);const isAndroid=/Android/i.test(ua);
 if(isiOS){ioshelp.classList.remove('hide');status.textContent='检测到 iPhone / iPad · 当前提供主屏幕安装';}
-else if(isAndroid){status.textContent='检测到 Android · v0.17.2';}
+else if(isAndroid){status.textContent='检测到 Android · v0.17.4';}
 ioshelp?.addEventListener('click',()=>iossteps.classList.toggle('hide'));
 </script>
 </body>
