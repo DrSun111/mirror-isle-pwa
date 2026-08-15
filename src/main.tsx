@@ -7,6 +7,7 @@ import DriftInboxLayer from './DriftInboxLayer.tsx'
 import MarketReadyLayer from './MarketReadyLayer.tsx'
 import V016Layer from './V016Layer.tsx'
 import RealDataGuard from './RealDataGuard.tsx'
+import VersionPatch from './VersionPatch.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -17,6 +18,7 @@ createRoot(document.getElementById('root')!).render(
       <MarketReadyLayer />
       <V016Layer />
       <RealDataGuard />
+      <VersionPatch />
     </>
   </StrictMode>,
 )
