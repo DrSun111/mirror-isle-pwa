@@ -3,12 +3,14 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import ExperienceV014 from './ExperienceV014.tsx'
+import DriftInboxLayer from './DriftInboxLayer.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <>
       <App />
       <ExperienceV014 />
+      <DriftInboxLayer />
     </>
   </StrictMode>,
 )
