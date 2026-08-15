@@ -1,0 +1,29 @@
+html.v016-warm-online .v015-meet-router.v015-meet-match.v016-real-data-guard.v016-demo-fallback-visible > .page-stack {
+  display: none !important;
+}
+
+.v016-real-match-state {
+  display: none;
+  width: calc(100% - 28px);
+  min-height: 180px;
+  margin: 16px 14px 28px;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  padding: 24px;
+  color: #75867b;
+  text-align: center;
+  background: rgba(255,253,249,.92);
+  border: 1px solid rgba(72,94,79,.09);
+  border-radius: 20px;
+}
+
+.v015-meet-match.v016-real-data-guard.v016-demo-fallback-visible > .v016-real-match-state,
+.v015-meet-match.v016-real-data-guard > .v016-real-match-state.empty,
+.v015-meet-match.v016-real-data-guard > .v016-real-match-state.offline {
+  display: grid;
+}
+
+.v016-real-match-state svg { color: #86a08f; }
+.v016-real-match-state strong { color: #53685b; font-size: 14px; }
+.v016-real-match-state span { max-width: 220px; color: #9aa39c; font-size: 10px; line-height: 1.6; }
