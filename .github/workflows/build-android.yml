@@ -53,23 +53,48 @@ jobs:
         working-directory: android
         run: ./gradlew assembleDebug
 
+      - name: Resolve release version
+        id: version
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF_NAME}"
+          else
+            VERSION="$(tr -d '\r\n ' < public/install/VERSION)"
+          fi
+          if [[ -z "$VERSION" ]]; then
+            echo "VERSION is empty" >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
       - name: Prepare release APK
         run: |
-          SAFE_REF="${GITHUB_REF_NAME//\//-}"
-          cp android/app/build/outputs/apk/debug/app-debug.apk "mirror-isle-beta-${SAFE_REF}.apk"
+          VERSION="${{ steps.version.outputs.version }}"
+          cp android/app/build/outputs/apk/debug/app-debug.apk "mirror-isle-${VERSION}.apk"
 
-      - name: Upload APK
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: mirror-isle-beta-apk
-          path: mirror-isle-beta-*.apk
+          path: mirror-isle-*.apk
 
-      - name: Publish release
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Publish or update public release
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          gh release create "${{ github.ref_name }}" "mirror-isle-beta-${{ github.ref_name }}.apk" \
-            --repo "${{ github.repository }}" \
-            --title "镜屿 ${{ github.ref_name }}" \
-            --notes "邀请码免验证注册、真实手机端导航、漂流海与账户同步、安装站和 iOS 工程准备版本。"
+          ASSET="mirror-isle-${VERSION}.apk"
+          if gh release view "$VERSION" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release upload "$VERSION" "$ASSET" --clobber --repo "${{ github.repository }}"
+            gh release edit "$VERSION" --repo "${{ github.repository }}" \
+              --title "镜屿 ${VERSION}" \
+              --notes "邀请码免邮箱验证注册、移动端全屏模块化导航、真实漂流海与账户心贝、隐私/RLS 加固、安装站和 iOS 工程。"
+          else
+            gh release create "$VERSION" "$ASSET" \
+              --target "${GITHUB_SHA}" \
+              --repo "${{ github.repository }}" \
+              --title "镜屿 ${VERSION}" \
+              --notes "邀请码免邮箱验证注册、移动端全屏模块化导航、真实漂流海与账户心贝、隐私/RLS 加固、安装站和 iOS 工程。"
+          fi
