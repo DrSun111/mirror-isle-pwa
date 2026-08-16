@@ -23,7 +23,6 @@ async function clearNativeWebCaches() {
 
 export default function NativeBootGuard() {
   useEffect(() => {
-    document.documentElement.dataset.mirrorReady = '1'
     const timer = window.setTimeout(() => {
       void clearNativeWebCaches()
     }, 300)
