@@ -66,7 +66,7 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           ASSET="mirror-isle-${VERSION}.apk"
-          NOTES="镜屿 Clean v1.0.1：修复注册后登录链路，增加登录错误本地化与密码找回入口；登录与主要页面升级为更高级、简约、治愈的真实场景视觉，并移除面向开发或解释性的文案。"
+          NOTES="镜屿 v2.0.2-beta：注册改为邮箱 + 密码 + 推荐码，无需邮箱验证码；推荐码校验走服务端，当前有效推荐码为 JY888。同步优化注册错误提示、自动登录衔接与缓存版本。"
           if gh release view "$VERSION" --repo "${{ github.repository }}" >/dev/null 2>&1; then
             gh release upload "$VERSION" "$ASSET" --clobber --repo "${{ github.repository }}"
             gh release edit "$VERSION" --repo "${{ github.repository }}" --title "镜屿 ${VERSION}" --notes "$NOTES"
