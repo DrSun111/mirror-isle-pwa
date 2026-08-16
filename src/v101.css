@@ -24,7 +24,7 @@
 .v101-primary:disabled{opacity:.5}.v101-message{margin:11px 0 0;text-align:center;color:#a56650;font-size:12px;line-height:1.5}.v101-link{display:block;margin:10px auto 0;padding:7px 12px;border:0;background:transparent;color:#9a6b58;font-size:12px}
 .v101-recovery-card{width:min(100% - 32px,430px);margin:auto;align-self:center;padding:26px 22px 30px;border-radius:28px;background:#fffdf9;box-shadow:0 26px 70px rgba(68,47,37,.12)}
 .v101-recovery-card .v101-brandmark{margin-bottom:20px}.v101-recovery-card>small{color:#9f7968}.v101-recovery-card h1{margin:8px 0 20px;font:700 32px/1.2 "Songti SC","STSong",serif}
-.auth-note,.privacy-note,.quiet-card,.gate-card>p,.match-hero>p,.home-hero>p,.page-title p{display:none!important}
+.auth-note,.privacy-note,.quiet-card,.gate-card>p,.match-hero>p,.home-hero>p,.page-title p,.version{display:none!important}
 body,#root,.app-shell{background:#f4eee7!important}
 .app-content{scrollbar-width:none}.app-content::-webkit-scrollbar{display:none}
 .bottom-nav{background:rgba(255,253,249,.96)!important;backdrop-filter:blur(18px);border-top-color:rgba(80,61,50,.06)!important;box-shadow:0 -12px 28px rgba(72,52,41,.04)}
@@ -39,6 +39,6 @@ body,#root,.app-shell{background:#f4eee7!important}
 .seen-stack{gap:12px!important}.seen-card{min-height:174px!important;border-radius:26px!important;overflow:hidden!important;box-shadow:0 16px 36px rgba(61,44,36,.09)!important;transition:transform .16s ease}.seen-card:active{transform:scale(.983)}.seen-card.tree{background:linear-gradient(90deg,rgba(43,37,31,.48),rgba(43,37,31,.05)),var(--mirror-treehole) center/cover!important}.seen-card.world{background:linear-gradient(90deg,rgba(43,37,31,.48),rgba(43,37,31,.04)),var(--mirror-meet) center/cover!important}.seen-card.friends{background:linear-gradient(90deg,rgba(43,37,31,.48),rgba(43,37,31,.04)),var(--mirror-chat) center/cover!important}.seen-card>div:first-child{position:relative;z-index:3;color:#fff!important;text-shadow:0 2px 16px rgba(0,0,0,.2)}.seen-card>div:first-child small,.seen-card>div:first-child p{color:rgba(255,255,255,.84)!important}.seen-card .scene{display:none!important}
 .profile-hero{background:linear-gradient(135deg,rgba(255,250,245,.9),rgba(235,229,218,.86)),var(--mirror-mine) center/cover!important}
 .match-hero{background:linear-gradient(135deg,#f7ebe2,#edf1e8)!important}.mood-hero{background:linear-gradient(135deg,#f8e8de,#eef3e8)!important}.wellbeing-hero{background:linear-gradient(135deg,#eaf1e6,#fbede4)!important}.inbox-hero{background:linear-gradient(135deg,#f3ece5,#eef1e9)!important}.sea-hero{background:linear-gradient(160deg,#e5eff0,#d6e6e5)!important}
-.form-message{font-size:11px!important;line-height:1.45!important}.version{opacity:.38!important;font-size:9px!important}
+.form-message{font-size:11px!important;line-height:1.45!important}
 @media (min-width:520px){.v101-auth{width:min(100%,480px);margin:auto;box-shadow:0 0 70px rgba(58,41,32,.12)}body{background:#ece6df!important}}
 @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
