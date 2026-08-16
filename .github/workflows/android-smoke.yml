@@ -66,23 +66,9 @@ jobs:
             adb logcat -c
             adb shell am start -W -n com.mirrorisle.beta/.MainActivity | tee mirror-start.txt
             grep -q 'Status: ok' mirror-start.txt
-            READY=0
-            for attempt in 1 2 3 4 5 6 7 8; do
-              sleep 2
-              adb logcat -d -t 2400 > mirror-logcat.txt
-              if grep -E 'FATAL EXCEPTION.*com\.mirrorisle\.beta|Process: com\.mirrorisle\.beta.*FATAL|MIRROR_NATIVE_BOOT_TIMEOUT' mirror-logcat.txt; then
-                cat mirror-logcat.txt
-                exit 1
-              fi
-              if grep -q 'MIRROR_NATIVE_BOOT_READY' mirror-logcat.txt; then
-                READY=1
-                break
-              fi
-              echo "Waiting for WebView boot marker ($attempt/8)..."
-            done
-            if [ "$READY" != "1" ]; then
-              grep -E 'MirrorBoot|Capacitor|com\.mirrorisle\.beta|chromium' mirror-logcat.txt | tail -180 || true
-              exit 1
-            fi
+            sleep 11
+            adb logcat -d -t 2400 > mirror-logcat.txt
+            if grep -E 'FATAL EXCEPTION.*com\.mirrorisle\.beta|Process: com\.mirrorisle\.beta.*FATAL|MIRROR_NATIVE_BOOT_TIMEOUT' mirror-logcat.txt; then cat mirror-logcat.txt; exit 1; fi
+            grep -q 'MIRROR_NATIVE_BOOT_READY' mirror-logcat.txt
             grep -E 'MIRROR_NATIVE_BOOT_READY|MirrorBoot|Capacitor|com\.mirrorisle\.beta|chromium' mirror-logcat.txt | tail -120 || true
             echo "Mirror Isle Android activity, WebView JavaScript bundle, and App module all booted successfully."
