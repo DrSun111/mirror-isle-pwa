@@ -1,0 +1,45 @@
+name: Test v2.0.2 Invite Registration
+
+on:
+  push:
+    branches:
+      - feature/v2-invite-register-jy888
+
+jobs:
+  invite-smoke:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+      SUPABASE_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+    steps:
+      - name: Test invalid recommendation code
+        shell: bash
+        run: |
+          set -euo pipefail
+          BODY=$(curl -sS -w '\n%{http_code}' -X POST "$SUPABASE_URL/functions/v1/invite-register" \
+            -H 'Content-Type: application/json' \
+            -H "apikey: $SUPABASE_KEY" \
+            --data '{"email":"mirror-v202-invalid@example.com","password":"abc123","invite_code":"BADCODE"}')
+          CODE=$(echo "$BODY" | tail -n1)
+          JSON=$(echo "$BODY" | sed '$d')
+          echo "$JSON"
+          test "$CODE" = "403"
+          echo "$JSON" | grep -q 'invalid_invite_code'
+      - name: Register with JY888 and sign in
+        shell: bash
+        run: |
+          set -euo pipefail
+          EMAIL="mirror-v202-${GITHUB_RUN_ID}@example.com"
+          PASSWORD='abc123'
+          REGISTER=$(curl -fsS -X POST "$SUPABASE_URL/functions/v1/invite-register" \
+            -H 'Content-Type: application/json' \
+            -H "apikey: $SUPABASE_KEY" \
+            --data "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\",\"invite_code\":\"JY888\"}")
+          echo "$REGISTER"
+          echo "$REGISTER" | grep -q '"ok":true'
+          LOGIN=$(curl -fsS -X POST "$SUPABASE_URL/auth/v1/token?grant_type=password" \
+            -H 'Content-Type: application/json' \
+            -H "apikey: $SUPABASE_KEY" \
+            --data "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}")
+          echo "$LOGIN" | grep -q 'access_token'
+          echo "registered_email=$EMAIL" >> "$GITHUB_STEP_SUMMARY"
