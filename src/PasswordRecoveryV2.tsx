@@ -32,12 +32,12 @@ export default function PasswordRecoveryV2({ onDone }: { onDone: () => void | Pr
     }
   }
 
-  return <main className="m2-recovery">
-    <section className="m2-recovery-card">
+  return <main className="m2-onboarding">
+    <section className="m2-onboarding-card">
       <div className="m2-small-brand"><Leaf size={18}/><Wind size={17}/></div>
       <small>MIRROR ISLE</small>
       <h1>设置新密码</h1>
-      <p>完成后即可使用新密码登录镜屿。</p>
+      <p className="muted">完成后即可使用新密码登录镜屿。</p>
       <label><span>新密码</span><div className="m2-password"><input type={show ? 'text' : 'password'} value={password} onChange={e=>setPassword(e.target.value)} autoComplete="new-password"/><button type="button" onClick={()=>setShow(v=>!v)}>{show?<EyeOff size={18}/>:<Eye size={18}/>}</button></div></label>
       <label><span>确认新密码</span><input type="password" value={confirm} onChange={e=>setConfirm(e.target.value)} autoComplete="new-password"/></label>
       <button className="m2-primary" disabled={busy} onClick={()=>void submit()}><LockKeyhole size={18}/>{busy?'更新中…':'保存新密码'}</button>
