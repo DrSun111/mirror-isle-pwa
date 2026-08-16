@@ -66,7 +66,7 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           ASSET="mirror-isle-${VERSION}.apk"
-          NOTES="镜屿 v2.0.3-beta：注册明确改为邮箱 + 密码 + 推荐码，当前有效推荐码为 JY888，不再走邮箱验证码；清空旧测试账号后重新注册。登录背景替换为生成式晨雾湖山治愈插画，并针对手机登录页完成裁切、留白与层级优化。"
+          NOTES="镜屿 v2.1.0-beta：按理想稿完成全局 UI/UX 精修，重新校准字体、卡片、留白与 Android 状态栏/多尺寸屏幕适配；将本轮原创生成的湖畔、书写、阅读、海岸与漂流瓶治愈场景真正嵌入遇见、记录、消息、成长和我的页面；记录页升级为‘心情打卡 / 树洞 / 世界’三个并列可点击入口，并继续使用原有 Supabase 联机数据与真实功能。"
           if gh release view "$VERSION" --repo "${{ github.repository }}" >/dev/null 2>&1; then
             gh release upload "$VERSION" "$ASSET" --clobber --repo "${{ github.repository }}"
             gh release edit "$VERSION" --repo "${{ github.repository }}" --title "镜屿 ${VERSION}" --notes "$NOTES"
