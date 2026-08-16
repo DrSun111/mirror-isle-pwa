@@ -1,33 +1,18 @@
-const CACHE_NAME = 'mirror-isle-pwa-v016'
-const APP_SHELL = [
-  './',
-  './manifest.webmanifest',
-  './og.png',
-  './icons/icon-192.png',
-  './icons/icon-512.png',
-  './assets/mirror/welcome.png',
-  './assets/mirror/meet.png',
-  './assets/mirror/relationship-map.png',
-  './assets/mirror/treehole.png',
-  './assets/mirror/growth.png',
-  './assets/mirror/chat.png',
-  './assets/mirror/mine.png'
-]
+const CACHE_NAME = 'mirror-isle-clean-v100'
+const SHELL = ['./manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches
-      .open(CACHE_NAME)
-      .then((cache) => cache.addAll(APP_SHELL))
-      .then(() => self.skipWaiting())
-      .catch(() => self.skipWaiting()),
+    caches.open(CACHE_NAME)
+      .then((cache) => cache.addAll(SHELL))
+      .catch(() => undefined)
+      .then(() => self.skipWaiting()),
   )
 })
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches
-      .keys()
+    caches.keys()
       .then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))))
       .then(() => self.clients.claim()),
   )
@@ -39,29 +24,23 @@ self.addEventListener('fetch', (event) => {
 
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request)
-        .then((response) => {
-          const copy = response.clone()
-          caches.open(CACHE_NAME).then((cache) => cache.put('./', copy))
-          return response
-        })
-        .catch(() => caches.match('./')),
+      fetch(request).catch(() => caches.match('./').then((cached) => cached || Response.error())),
     )
     return
   }
 
+  const url = new URL(request.url)
+  if (url.origin !== self.location.origin) return
+
   event.respondWith(
-    caches.match(request).then((cached) => {
-      const network = fetch(request)
-        .then((response) => {
-          if (response.ok) {
-            const copy = response.clone()
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy))
-          }
-          return response
-        })
-        .catch(() => cached)
-      return cached || network
-    }),
+    fetch(request)
+      .then((response) => {
+        if (response.ok && ['style', 'script', 'image', 'font'].includes(request.destination)) {
+          const copy = response.clone()
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy))
+        }
+        return response
+      })
+      .catch(() => caches.match(request).then((cached) => cached || Response.error())),
   )
 })
