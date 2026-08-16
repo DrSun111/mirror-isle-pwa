@@ -1,0 +1,1 @@
+v2.0.3-beta: recommendation-code registration is explicitly surfaced in the auth UI; JY888 is server validated and registration auto-signs in without email verification. The previous geometric auth background is replaced by a generated, cropped watercolor mountain-lake illustration optimized for the mobile hero. Old test accounts were cleared before the final verification run.
