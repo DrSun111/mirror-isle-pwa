@@ -1,32 +1,13 @@
-import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { Capacitor } from '@capacitor/core'
 import './index.css'
-import App from './App.tsx'
-import ExperienceV014 from './ExperienceV014.tsx'
-import DriftInboxLayer from './DriftInboxLayer.tsx'
-import MarketReadyLayer from './MarketReadyLayer.tsx'
-import V016Layer from './V016Layer.tsx'
-import RealDataGuard from './RealDataGuard.tsx'
-import VersionPatch from './VersionPatch.tsx'
+import CleanApp from './CleanApp'
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <>
-      <App />
-      <ExperienceV014 />
-      <DriftInboxLayer />
-      <MarketReadyLayer />
-      <V016Layer />
-      <RealDataGuard />
-      <VersionPatch />
-    </>
-  </StrictMode>,
-)
+const root = document.getElementById('root')
+if (root) createRoot(root).render(<CleanApp />)
 
-if ('serviceWorker' in navigator) {
+if (!Capacitor.isNativePlatform() && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {
-      // The app still works without offline caching.
-    })
+    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => undefined)
   })
 }
