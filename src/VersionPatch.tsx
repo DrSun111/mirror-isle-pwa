@@ -1,13 +1,13 @@
 import { useEffect } from 'react'
 
-const CURRENT_VERSION = '0.17.2'
+const CURRENT_VERSION = '0.18.0'
 
 export default function VersionPatch() {
   useEffect(() => {
     const patch = () => {
       document.querySelectorAll<HTMLElement>('button, p, span, div').forEach((node) => {
         if (node.childElementCount > 0) return
-        if (/^当前版本\s+0\.(12\.4|16|17|17\.1)$/.test(node.textContent?.trim() ?? '')) {
+        if (/^当前版本\s+0\.(12\.4|16|17(?:\.\d+)?)$/.test(node.textContent?.trim() ?? '')) {
           node.textContent = `当前版本 ${CURRENT_VERSION}`
         }
       })

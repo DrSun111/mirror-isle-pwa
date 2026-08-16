@@ -9,8 +9,14 @@ on:
       - feature/market-ready-auth-mobile-ios-v015
       - feature/warm-psychometric-online-v016
       - feature/v017-seen-mood-calendar
+      - feature/v018-uploaded-v016-baseline
     tags:
       - "v*"
+    paths-ignore:
+      - ".github/**"
+  pull_request:
+    branches:
+      - main
     paths-ignore:
       - ".github/**"
   workflow_dispatch:
@@ -90,7 +96,7 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           ASSET="mirror-isle-${VERSION}.apk"
-          NOTES="每日心情升级为账号同步月历历史；树洞主入口升级为‘看见’，包含竖排的树洞、世界、好友三个独立窗口；整体采用更温暖唯美的树影、微风与柔和留白视觉，同时保留真实用户、真实树洞与好友数据。"
+          NOTES="基于用户上传的稳定版本继续优化：每日心情增加账号同步月历历史；树洞入口升级为‘看见’，以竖排树洞、世界、好友进入独立窗口；场景配图采用暖色树影、微风与真实图片，并通过按需渲染、懒加载图片、延迟数据请求和减少重绘降低卡顿。"
           if gh release view "$VERSION" --repo "${{ github.repository }}" >/dev/null 2>&1; then
             gh release upload "$VERSION" "$ASSET" --clobber --repo "${{ github.repository }}"
             gh release edit "$VERSION" --repo "${{ github.repository }}" \

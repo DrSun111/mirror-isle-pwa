@@ -7,14 +7,12 @@ import {
   Globe2,
   Leaf,
   LockKeyhole,
-  MessageCircle,
   RefreshCw,
   Send,
   Sparkles,
   Users,
   Wind,
 } from 'lucide-react'
-import { fetchFriends, type ApiRecommendation } from './api'
 import {
   createTreeV016,
   fetchMoodHistoryV016,
@@ -57,24 +55,30 @@ function formatShortDate(value: string) {
 function formatPostDate(value: string) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return ''
-  return new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }).format(date)
+  return new Intl.DateTimeFormat('zh-CN', {
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date)
 }
 
 function buildMonthCells(month: Date) {
   const year = month.getFullYear()
-  const m = month.getMonth()
-  const first = new Date(year, m, 1)
-  const start = new Date(year, m, 1 - first.getDay())
+  const monthIndex = month.getMonth()
+  const first = new Date(year, monthIndex, 1)
+  const start = new Date(year, monthIndex, 1 - first.getDay())
   return Array.from({ length: 42 }, (_, index) => {
     const date = new Date(start)
     date.setDate(start.getDate() + index)
-    return { date, key: localDateKey(date), current: date.getMonth() === m }
+    return { date, key: localDateKey(date), current: date.getMonth() === monthIndex }
   })
 }
 
 function currentStreak(moods: MoodV016[]) {
   const dates = new Set(moods.map((item) => item.date))
-  let cursor = new Date()
+  const cursor = new Date()
   let streak = 0
   while (dates.has(localDateKey(cursor))) {
     streak += 1
@@ -83,7 +87,35 @@ function currentStreak(moods: MoodV016[]) {
   return streak
 }
 
-function MoodCalendarV017() {
+function useActivateWhenVisible(target: HTMLElement | null) {
+  const [active, setActive] = useState(false)
+
+  useEffect(() => {
+    if (!target || active) return
+
+    if (!('IntersectionObserver' in window)) {
+      setActive(true)
+      return
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting && entry.intersectionRatio > 0.04)) {
+          setActive(true)
+          observer.disconnect()
+        }
+      },
+      { threshold: [0, 0.04, 0.2] },
+    )
+
+    observer.observe(target)
+    return () => observer.disconnect()
+  }, [target, active])
+
+  return active
+}
+
+function MoodCalendarV018() {
   const [moods, setMoods] = useState<MoodV016[]>([])
   const [wallet, setWallet] = useState<WalletV016>({ points: 0, bottleCredits: 0 })
   const [month, setMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1))
@@ -110,18 +142,25 @@ function MoodCalendarV017() {
     }
   }
 
-  useEffect(() => { void load() }, [])
+  useEffect(() => {
+    void load()
+  }, [])
 
   const monthCells = useMemo(() => buildMonthCells(month), [month])
   const moodByDate = useMemo(() => new Map(moods.map((item) => [item.date, item])), [moods])
   const selected = moodByDate.get(selectedDate)
-  const monthRows = moods.filter((item) => {
-    const date = parseLocalDate(item.date)
-    return date.getFullYear() === month.getFullYear() && date.getMonth() === month.getMonth()
-  })
-  const streak = currentStreak(moods)
+  const monthRows = useMemo(
+    () =>
+      moods.filter((item) => {
+        const date = parseLocalDate(item.date)
+        return date.getFullYear() === month.getFullYear() && date.getMonth() === month.getMonth()
+      }),
+    [moods, month],
+  )
+  const streak = useMemo(() => currentStreak(moods), [moods])
 
   const save = async () => {
+    if (busy) return
     setBusy(true)
     setMessage('')
     try {
@@ -138,7 +177,7 @@ function MoodCalendarV017() {
   }
 
   return (
-    <section className="v017-mood-root">
+    <section className="v017-mood-root v018-lite">
       <div className="v017-mood-hero">
         <div className="v017-nature-mark"><Leaf size={17}/><Wind size={16}/></div>
         <small>每日心情</small>
@@ -148,23 +187,43 @@ function MoodCalendarV017() {
 
       <section className="v017-calendar-card">
         <header className="v017-calendar-head">
-          <button onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} aria-label="上个月"><ChevronLeft size={19}/></button>
+          <button
+            onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}
+            aria-label="上个月"
+          >
+            <ChevronLeft size={19}/>
+          </button>
           <strong>{month.getFullYear()}年{month.getMonth() + 1}月</strong>
-          <button onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} aria-label="下个月"><ChevronRight size={19}/></button>
+          <button
+            onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}
+            aria-label="下个月"
+          >
+            <ChevronRight size={19}/>
+          </button>
         </header>
-        <div className="v017-week-row">{['日','一','二','三','四','五','六'].map((day) => <span key={day}>{day}</span>)}</div>
+
+        <div className="v017-week-row">
+          {['日', '一', '二', '三', '四', '五', '六'].map((day) => <span key={day}>{day}</span>)}
+        </div>
+
         <div className="v017-calendar-grid">
           {monthCells.map((cell) => {
             const row = moodByDate.get(cell.key)
             const active = selectedDate === cell.key
             return (
-              <button key={cell.key} className={`${cell.current ? '' : 'outside'}${active ? ' active' : ''}`} onClick={() => setSelectedDate(cell.key)}>
+              <button
+                key={cell.key}
+                className={`${cell.current ? '' : 'outside'}${active ? ' active' : ''}`}
+                onClick={() => setSelectedDate(cell.key)}
+                aria-label={`${cell.key}${row ? ` ${moodMeta[row.mood].label}` : ''}`}
+              >
                 <b>{cell.date.getDate()}</b>
                 {row ? <i className={`mood-${row.mood}`}>{moodMeta[row.mood].symbol}</i> : <i className="empty" />}
               </button>
             )
           })}
         </div>
+
         <div className="v017-month-summary">
           <span><b>{monthRows.length}</b> 本月记录</span>
           <span><b>{streak}</b> 连续天数</span>
@@ -180,16 +239,34 @@ function MoodCalendarV017() {
             <h2>{selected ? moodMeta[selected.mood].label : '这一天还没有记录'}</h2>
             <p>{selected?.note || '留白也属于时间的一部分。'}</p>
           </div>
-          <button onClick={() => { setSelectedDate(today); setMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1)) }}>回到今天</button>
+          <button
+            onClick={() => {
+              const now = new Date()
+              setSelectedDate(today)
+              setMonth(new Date(now.getFullYear(), now.getMonth(), 1))
+            }}
+          >
+            回到今天
+          </button>
         </section>
       ) : (
         <section className="v017-today-card">
-          <div className="v017-card-title"><div><small>今天</small><h2>此刻像什么天气？</h2></div><Sparkles size={18}/></div>
+          <div className="v017-card-title">
+            <div><small>今天</small><h2>此刻像什么天气？</h2></div>
+            <Sparkles size={18}/>
+          </div>
           <div className="v017-mood-options">
-            {moodOrder.map((key) => <button key={key} className={mood === key ? 'active' : ''} onClick={() => setMood(key)}><b>{moodMeta[key].symbol}</b><span>{moodMeta[key].label}</span></button>)}
+            {moodOrder.map((key) => (
+              <button key={key} className={mood === key ? 'active' : ''} onClick={() => setMood(key)}>
+                <b>{moodMeta[key].symbol}</b>
+                <span>{moodMeta[key].label}</span>
+              </button>
+            ))}
           </div>
           <textarea value={note} onChange={(event) => setNote(event.target.value)} maxLength={240} placeholder="想留一句话吗？（可不写）" />
-          <button className="v017-primary" onClick={() => void save()} disabled={busy}>{busy ? '保存中…' : '记录今日心情'}</button>
+          <button className="v017-primary" onClick={() => void save()} disabled={busy}>
+            {busy ? '保存中…' : '记录今日心情'}
+          </button>
           {message ? <p className="v017-status">{message}</p> : null}
         </section>
       )}
@@ -197,20 +274,20 @@ function MoodCalendarV017() {
   )
 }
 
-function SeenV017() {
+function SeenV018() {
   const [view, setView] = useState<SeenView>('home')
   const [posts, setPosts] = useState<TreePostV016[]>([])
-  const [friends, setFriends] = useState<ApiRecommendation[]>([])
+  const [loaded, setLoaded] = useState(false)
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
 
   const load = async () => {
+    if (busy) return
     setBusy(true)
     try {
-      const [nextPosts, nextFriends] = await Promise.all([fetchTreeV016(), fetchFriends('')])
-      setPosts(nextPosts)
-      setFriends(nextFriends.items)
+      setPosts(await fetchTreeV016())
+      setLoaded(true)
       setMessage('')
     } catch {
       setMessage('网络暂时没有连上')
@@ -219,20 +296,32 @@ function SeenV017() {
     }
   }
 
-  useEffect(() => { void load() }, [])
+  useEffect(() => {
+    if (view !== 'home' && !loaded) void load()
+  }, [view, loaded])
 
-  const privatePosts = posts.filter((post) => post.mine && post.visibility === 'private')
-  const worldPosts = posts.filter((post) => post.visibility === 'public' && post.status === 'approved')
-  const friendPosts = posts.filter((post) => post.visibility === 'friends')
+  const privatePosts = useMemo(
+    () => posts.filter((post) => post.mine && post.visibility === 'private'),
+    [posts],
+  )
+  const worldPosts = useMemo(
+    () => posts.filter((post) => post.visibility === 'public' && post.status === 'approved'),
+    [posts],
+  )
+  const friendPosts = useMemo(
+    () => posts.filter((post) => post.visibility === 'friends'),
+    [posts],
+  )
 
   const publish = async (visibility: 'private' | 'friends' | 'public') => {
-    if (!draft.trim()) return
+    if (!draft.trim() || busy) return
     setBusy(true)
     try {
       const row = await createTreeV016(draft, visibility)
       setDraft('')
       setMessage(visibility === 'private' || row.status === 'approved' ? '已保存' : '已提交审核')
-      await load()
+      setPosts(await fetchTreeV016())
+      setLoaded(true)
     } catch {
       setMessage('保存失败，请重试')
     } finally {
@@ -241,64 +330,111 @@ function SeenV017() {
   }
 
   const goMessages = () => {
-    const messageButton = [...document.querySelectorAll<HTMLButtonElement>('.bottom-tabs button')].find((button) => button.textContent?.includes('消息'))
+    const buttons = [...document.querySelectorAll<HTMLButtonElement>('.bottom-tabs button')]
+    const messageButton = buttons.find((button) => button.textContent?.includes('消息'))
     messageButton?.click()
   }
 
-  const art = (file: string) => ({ backgroundImage: `linear-gradient(90deg, rgba(255,249,242,.98) 0%, rgba(255,249,242,.86) 43%, rgba(255,249,242,.06) 74%), url(${import.meta.env.BASE_URL}assets/mirror/${file})` })
+  const sceneSrc = (file: string) => `${import.meta.env.BASE_URL}assets/mirror/${file}`
 
   if (view === 'home') {
     return (
-      <section className="v017-seen-root v017-seen-home">
+      <section className="v017-seen-root v017-seen-home v018-lite">
         <header className="v017-seen-head">
           <div><small>SEE · MIRROR ISLE</small><h1>看见</h1><p>温柔连接，彼此看见</p></div>
           <div className="v017-seen-symbol"><Leaf size={20}/><Wind size={15}/></div>
         </header>
+
         <div className="v017-seen-stack">
-          <button className="v017-seen-card tree" style={art('treehole.png')} onClick={() => setView('tree')}>
-            <div><small><LockKeyhole size={13}/> 仅自己可见</small><h2>树洞</h2><p>私密记录，只给自己看</p><i><ChevronRight size={20}/></i></div>
+          <button className="v017-seen-card tree" onClick={() => setView('tree')}>
+            <img src={sceneSrc('treehole.png')} alt="" loading="lazy" decoding="async" />
+            <div>
+              <small><LockKeyhole size={13}/> 仅自己可见</small>
+              <h2>树洞</h2>
+              <p>私密记录，只给自己看</p>
+              <i><ChevronRight size={20}/></i>
+            </div>
           </button>
-          <button className="v017-seen-card world" style={art('meet.png')} onClick={() => setView('world')}>
-            <div><small><Globe2 size={13}/> 真实岛民</small><h2>世界</h2><p>看看世界正在发生的柔软瞬间</p><i><ChevronRight size={20}/></i></div>
+
+          <button className="v017-seen-card world" onClick={() => setView('world')}>
+            <img src={sceneSrc('meet.png')} alt="" loading="lazy" decoding="async" />
+            <div>
+              <small><Globe2 size={13}/> 真实岛民</small>
+              <h2>世界</h2>
+              <p>看看世界正在发生的柔软瞬间</p>
+              <i><ChevronRight size={20}/></i>
+            </div>
           </button>
-          <button className="v017-seen-card friends" style={art('chat.png')} onClick={() => setView('friends')}>
-            <div><small><Users size={13}/> 只在好友之间</small><h2>好友</h2><p>走近熟悉的人，读懂彼此</p><i><ChevronRight size={20}/></i></div>
+
+          <button className="v017-seen-card friends" onClick={() => setView('friends')}>
+            <img src={sceneSrc('chat.png')} alt="" loading="lazy" decoding="async" />
+            <div>
+              <small><Users size={13}/> 只在好友之间</small>
+              <h2>好友</h2>
+              <p>走近熟悉的人，读懂彼此</p>
+              <i><ChevronRight size={20}/></i>
+            </div>
           </button>
         </div>
-        {message ? <p className="v017-status">{message}</p> : null}
       </section>
     )
   }
 
   const title = view === 'tree' ? '树洞' : view === 'world' ? '世界' : '好友'
-  const subtitle = view === 'tree' ? '这里只属于你' : view === 'world' ? '看见真实的人，也被世界看见' : '熟悉的人，在这里慢慢靠近'
+  const subtitle = view === 'tree'
+    ? '这里只属于你'
+    : view === 'world'
+      ? '看见真实的人，也被世界看见'
+      : '熟悉的人，在这里慢慢靠近'
   const visibility = view === 'tree' ? 'private' : view === 'world' ? 'public' : 'friends'
   const visiblePosts = view === 'tree' ? privatePosts : view === 'world' ? worldPosts : friendPosts
 
   return (
-    <section className={`v017-seen-root v017-seen-subpage ${view}`}>
+    <section className={`v017-seen-root v017-seen-subpage ${view} v018-lite`}>
       <header className="v017-sub-head">
-        <button onClick={() => { setView('home'); setDraft(''); setMessage('') }} aria-label="返回看见"><ChevronLeft size={22}/></button>
+        <button onClick={() => { setView('home'); setDraft(''); setMessage('') }} aria-label="返回看见">
+          <ChevronLeft size={22}/>
+        </button>
         <div><small>{subtitle}</small><h1>{title}</h1></div>
         <button onClick={() => void load()} aria-label="刷新"><RefreshCw size={17}/></button>
       </header>
 
       <div className={`v017-sub-hero ${view}`}>
-        {view === 'tree' ? <LockKeyhole size={23}/> : view === 'world' ? <Globe2 size={24}/> : <Users size={24}/>} 
-        <span>{view === 'tree' ? '无需修饰，也无需回应' : view === 'world' ? '公开内容会经过安全审核' : `${friends.length} 位好友`}</span>
-        <Leaf size={18} className="leaf"/><Wind size={17} className="wind"/>
+        {view === 'tree' ? <LockKeyhole size={23}/> : view === 'world' ? <Globe2 size={24}/> : <Users size={24}/>}
+        <span>
+          {view === 'tree'
+            ? '无需修饰，也无需回应'
+            : view === 'world'
+              ? '公开内容会经过安全审核'
+              : '仅好友可见的分享'}
+        </span>
+        <Leaf size={18} className="leaf"/>
+        <Wind size={17} className="wind"/>
       </div>
 
       <section className="v017-compose-card">
-        <textarea value={draft} onChange={(event) => setDraft(event.target.value)} maxLength={1200} placeholder={view === 'tree' ? '写下此刻真实的你…' : view === 'world' ? '分享一个想被世界看见的瞬间…' : '写给好友们看…'} />
-        <button onClick={() => void publish(visibility)} disabled={busy || !draft.trim()}><Send size={16}/>{view === 'tree' ? '记录' : '发布'}</button>
+        <textarea
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          maxLength={1200}
+          placeholder={
+            view === 'tree'
+              ? '写下此刻真实的你…'
+              : view === 'world'
+                ? '分享一个想被世界看见的瞬间…'
+                : '写给好友们看…'
+          }
+        />
+        <button onClick={() => void publish(visibility)} disabled={busy || !draft.trim()}>
+          <Send size={16}/>{view === 'tree' ? '记录' : '发布'}
+        </button>
       </section>
 
       {view === 'friends' ? (
-        <section className="v017-friend-strip">
-          <header><strong>我的好友</strong><button onClick={goMessages}>去消息</button></header>
+        <section className="v017-friend-strip v018-friend-shortcut">
           <div>
-            {friends.length ? friends.map((friend) => <article key={friend.id}><span>{friend.nickname.slice(0, 1)}</span><div><b>{friend.nickname}</b><small>{friend.city} · {friend.goal}</small></div><button onClick={goMessages}><MessageCircle size={15}/></button></article>) : <p>{busy ? '正在同步好友…' : '还没有好友，先从“遇见”认识一个人。'}</p>}
+            <strong>好友之间的内容只对已建立好友关系的人可见</strong>
+            <button onClick={goMessages}>去消息</button>
           </div>
         </section>
       ) : null}
@@ -310,8 +446,19 @@ function SeenV017() {
             <p>{post.content}</p>
             {post.status !== 'approved' && view !== 'tree' ? <small>审核中</small> : null}
           </article>
-        )) : <div className="v017-empty">{busy ? '正在同步…' : view === 'tree' ? '树洞还很安静' : view === 'world' ? '此刻世界很安静' : '好友之间还没有新的分享'}</div>}
+        )) : (
+          <div className="v017-empty">
+            {busy
+              ? '正在同步…'
+              : view === 'tree'
+                ? '树洞还很安静'
+                : view === 'world'
+                  ? '此刻世界很安静'
+                  : '好友之间还没有新的分享'}
+          </div>
+        )}
       </div>
+
       {message ? <p className="v017-status">{message}</p> : null}
     </section>
   )
@@ -320,35 +467,67 @@ function SeenV017() {
 function V017Layer() {
   const [meet, setMeet] = useState<HTMLElement | null>(null)
   const [seen, setSeen] = useState<HTMLElement | null>(null)
+  const meetActive = useActivateWhenVisible(meet)
+  const seenActive = useActivateWhenVisible(seen)
 
   useEffect(() => {
     document.documentElement.classList.add('v017-warm-seen')
-    const refresh = () => {
+
+    let frame = 0
+    let decoratedSeen: HTMLElement | null = null
+
+    const refreshNow = () => {
       const panes = [...document.querySelectorAll<HTMLElement>('.swipe-pane')]
       const nextMeet = panes[0] ?? null
       const nextSeen = panes[1] ?? null
+
       setMeet((current) => current === nextMeet ? current : nextMeet)
       setSeen((current) => current === nextSeen ? current : nextSeen)
-      nextSeen?.classList.add('v017-seen-pane')
 
-      const treeButton = [...document.querySelectorAll<HTMLButtonElement>('.bottom-tabs button')].find((button) => button.textContent?.includes('树洞') || button.textContent?.includes('看见'))
+      if (decoratedSeen !== nextSeen) {
+        decoratedSeen?.classList.remove('v017-seen-pane')
+        decoratedSeen = nextSeen
+        decoratedSeen?.classList.add('v017-seen-pane')
+      }
+
+      const treeButton = [...document.querySelectorAll<HTMLButtonElement>('.bottom-tabs button')]
+        .find((button) => button.textContent?.includes('树洞') || button.textContent?.includes('看见'))
+
       if (treeButton) {
-        const label = [...treeButton.querySelectorAll<HTMLElement>('span')].at(-1)
-        if (label) label.textContent = '看见'
-        else if (treeButton.textContent?.trim() === '树洞') treeButton.textContent = '看见'
+        const labels = [...treeButton.querySelectorAll<HTMLElement>('span')]
+        const label = labels.at(-1)
+        if (label && label.textContent !== '看见') label.textContent = '看见'
       }
     }
-    refresh()
-    const observer = new MutationObserver(refresh)
-    observer.observe(document.body, { childList: true, subtree: true })
+
+    const scheduleRefresh = () => {
+      if (frame) return
+      frame = window.requestAnimationFrame(() => {
+        frame = 0
+        refreshNow()
+      })
+    }
+
+    refreshNow()
+
+    const root = document.getElementById('root') ?? document.body
+    const observer = new MutationObserver(scheduleRefresh)
+    observer.observe(root, { childList: true, subtree: true })
+
     return () => {
+      if (frame) window.cancelAnimationFrame(frame)
       observer.disconnect()
-      seen?.classList.remove('v017-seen-pane')
+      decoratedSeen?.classList.remove('v017-seen-pane')
       document.documentElement.classList.remove('v017-warm-seen')
     }
-  }, [seen])
+  }, [])
 
-  return <>{meet ? createPortal(<MoodCalendarV017/>, meet) : null}{seen ? createPortal(<SeenV017/>, seen) : null}</>
+  return (
+    <>
+      {meet && meetActive ? createPortal(<MoodCalendarV018/>, meet) : null}
+      {seen && seenActive ? createPortal(<SeenV018/>, seen) : null}
+    </>
+  )
 }
 
 export default V017Layer
