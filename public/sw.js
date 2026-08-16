@@ -1,17 +1,10 @@
-const CACHE_NAME = 'mirror-isle-pwa-v0174'
+const CACHE_NAME = 'mirror-isle-pwa-v0180'
 const APP_SHELL = [
   './',
   './manifest.webmanifest',
   './og.png',
   './icons/icon-192.png',
-  './icons/icon-512.png',
-  './assets/mirror/welcome.png',
-  './assets/mirror/meet.png',
-  './assets/mirror/relationship-map.png',
-  './assets/mirror/treehole.png',
-  './assets/mirror/growth.png',
-  './assets/mirror/chat.png',
-  './assets/mirror/mine.png'
+  './icons/icon-512.png'
 ]
 
 self.addEventListener('install', (event) => {
