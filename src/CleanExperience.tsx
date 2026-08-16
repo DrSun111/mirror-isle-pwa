@@ -7,6 +7,7 @@ import './v101.css'
 type AuthMode = 'login' | 'register'
 
 const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms))
+const RECOVERY_URL = 'https://drsun111.github.io/mirror-isle-pwa/'
 
 function friendlyAuthError(error: unknown) {
   const raw = error instanceof Error ? error.message : String(error ?? '')
@@ -124,8 +125,7 @@ function AuthV101({ onReady }: { onReady: (profile: CleanProfile) => void }) {
     if (!/^\S+@\S+\.\S+$/.test(normalizedEmail)) { setMessage('先填写邮箱'); return }
     setBusy(true); setMessage('')
     try {
-      const redirectTo = `${window.location.origin}${import.meta.env.BASE_URL}`
-      const { error } = await cleanSupabase.auth.resetPasswordForEmail(normalizedEmail, { redirectTo })
+      const { error } = await cleanSupabase.auth.resetPasswordForEmail(normalizedEmail, { redirectTo: RECOVERY_URL })
       if (error) throw error
       setMessage('重置邮件已发送')
     } catch (error) {
