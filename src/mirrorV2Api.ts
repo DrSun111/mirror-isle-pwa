@@ -50,6 +50,7 @@ export type MirrorV2Profile = {
   profile_complete: boolean
   profession: string
   birth_date: string
+  age: number | null
   theme: ThemeKey
   traits: Record<string, number>
 }
@@ -135,6 +136,7 @@ function normalizeProfile(row: any): MirrorV2Profile {
     profile_complete: Boolean(row.profile_complete),
     profession: row.profession || '',
     birth_date: row.birth_date || '',
+    age: row.age == null ? null : Number(row.age),
     theme: (row.theme || 'green_morning') as ThemeKey,
     traits: row.traits || {},
   }
@@ -288,6 +290,7 @@ export async function fetchRecommendationsV2(limit = 12) {
     profile_complete: true,
     profession: row.profession || '',
     birth_date: '',
+    age: row.age == null ? null : Number(row.age),
     theme: 'green_morning' as ThemeKey,
     traits: {},
     score: Number(row.score || 0),
