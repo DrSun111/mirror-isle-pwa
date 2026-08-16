@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import MirrorV2Experience from './MirrorV2Experience'
+import MirrorV2Polish from './MirrorV2Polish'
 import PasswordRecoveryV2 from './PasswordRecoveryV2'
 import { cleanSupabase, restoreV2Account } from './mirrorV2Api'
 
@@ -25,5 +26,8 @@ export default function MirrorV2Root() {
     }}/>
   }
 
-  return <MirrorV2Experience />
+  return <>
+    <MirrorV2Polish />
+    <MirrorV2Experience />
+  </>
 }
