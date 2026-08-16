@@ -119,8 +119,12 @@ function friendlyAuthError(error:unknown) {
   const raw = error instanceof Error ? error.message : String(error ?? '')
   if (/invalid login credentials/i.test(raw)) return '邮箱或密码不正确'
   if (/email not confirmed/i.test(raw)) return '请先在邮箱中完成验证'
-  if (/user already registered/i.test(raw)) return '该邮箱已有账号，请直接登录'
-  if (/password should be at least/i.test(raw)) return '密码至少需要 6 位'
+  if (/user already registered|email_already_registered/i.test(raw)) return '该邮箱已有账号，请直接登录'
+  if (/invite_required/i.test(raw)) return '请输入推荐码'
+  if (/invalid_invite_code|invalid_or_exhausted_invite/i.test(raw)) return '推荐码不正确'
+  if (/invite_expired/i.test(raw)) return '推荐码已过期'
+  if (/invite_exhausted/i.test(raw)) return '推荐码使用次数已达上限'
+  if (/weak_password|password should be at least/i.test(raw)) return '密码至少需要 6 位'
   if (/rate limit/i.test(raw)) return '操作过于频繁，请稍后再试'
   if (/network|fetch/i.test(raw)) return '网络暂时不可用'
   return raw || '暂时无法完成操作'
@@ -131,10 +135,10 @@ function AuthScreen({ onReady }: {onReady:(profile:MirrorV2Profile)=>void}) {
   const [email,setEmail]=useState('')
   const [password,setPassword]=useState('')
   const [confirm,setConfirm]=useState('')
+  const [inviteCode,setInviteCode]=useState('')
   const [showPassword,setShowPassword]=useState(false)
   const [busy,setBusy]=useState(false)
   const [message,setMessage]=useState('')
-  const [verification,setVerification]=useState(false)
 
   const submit=async()=>{
     const normalized=email.trim().toLowerCase()
@@ -142,15 +146,15 @@ function AuthScreen({ onReady }: {onReady:(profile:MirrorV2Profile)=>void}) {
     if(mode==='login'&&!password){setMessage('请输入密码');return}
     if(mode==='register'&&password.length<6){setMessage('密码至少 6 位');return}
     if(mode==='register'&&password!==confirm){setMessage('两次密码不一致');return}
-    setBusy(true);setMessage('');setVerification(false)
+    if(mode==='register'&&!inviteCode.trim()){setMessage('请输入推荐码');return}
+    setBusy(true);setMessage('')
     try{
       if(mode==='login'){
         const result=await loginEmail(normalized,password)
         onReady(result.profile)
       }else{
-        const result=await registerEmail(normalized,password)
-        if(result.profile) onReady(result.profile)
-        else { setVerification(true); setMessage('验证邮件已发送，请完成邮箱验证后登录') }
+        const result=await registerEmail(normalized,password,inviteCode)
+        onReady(result.profile)
       }
     }catch(error){setMessage(friendlyAuthError(error))}
     finally{setBusy(false)}
@@ -172,12 +176,12 @@ function AuthScreen({ onReady }: {onReady:(profile:MirrorV2Profile)=>void}) {
       <div className="m2-auth-copy"><h1>镜屿</h1><p>寻找世界上另一个自己</p></div>
     </section>
     <section className="m2-auth-panel">
-      <div className="m2-auth-switch"><button className={mode==='login'?'active':''} onClick={()=>{setMode('login');setMessage('')}}>登录</button><button className={mode==='register'?'active':''} onClick={()=>{setMode('register');setMessage('')}}>邮箱注册</button></div>
+      <div className="m2-auth-switch"><button className={mode==='login'?'active':''} onClick={()=>{setMode('login');setMessage('')}}>登录</button><button className={mode==='register'?'active':''} onClick={()=>{setMode('register');setMessage('')}}>注册</button></div>
       <label><span>邮箱</span><input value={email} onChange={e=>setEmail(e.target.value)} autoCapitalize="none" inputMode="email" autoComplete="email" placeholder="name@example.com"/></label>
       <label><span>密码</span><div className="m2-password"><input type={showPassword?'text':'password'} value={password} onChange={e=>setPassword(e.target.value)} autoComplete={mode==='login'?'current-password':'new-password'} placeholder={mode==='login'?'请输入密码':'至少 6 位'}/><button type="button" onClick={()=>setShowPassword(v=>!v)}>{showPassword?<EyeOff size={18}/>:<Eye size={18}/>}</button></div></label>
-      {mode==='register'&&<label><span>确认密码</span><input type="password" value={confirm} onChange={e=>setConfirm(e.target.value)} autoComplete="new-password" placeholder="再次输入密码"/></label>}
+      {mode==='register'&&<><label><span>确认密码</span><input type="password" value={confirm} onChange={e=>setConfirm(e.target.value)} autoComplete="new-password" placeholder="再次输入密码"/></label><label><span>推荐码</span><input value={inviteCode} onChange={e=>setInviteCode(e.target.value.toUpperCase())} autoCapitalize="characters" autoComplete="off" maxLength={24} placeholder="请输入推荐码"/></label></>}
       <button className="m2-primary" disabled={busy} onClick={()=>void submit()}>{busy?'请稍候…':mode==='login'?'进入镜屿':'创建账号'}</button>
-      {message&&<p className={`m2-form-message ${verification?'success':''}`}>{message}</p>}
+      {message&&<p className="m2-form-message">{message}</p>}
       {mode==='login'&&<button className="m2-text-button" disabled={busy} onClick={()=>void reset()}>忘记密码</button>}
     </section>
   </main>

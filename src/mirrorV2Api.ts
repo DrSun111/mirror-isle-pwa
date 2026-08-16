@@ -190,16 +190,25 @@ export async function loginEmail(email: string, password: string) {
   return { user: data.user, profile: await ensureV2Profile(data.user) }
 }
 
-export async function registerEmail(email: string, password: string) {
+export async function registerEmail(email: string, password: string, inviteCode: string) {
   const normalized = email.trim().toLowerCase()
-  const { data, error } = await cleanSupabase.auth.signUp({
-    email: normalized,
-    password,
-    options: { emailRedirectTo: WEB_URL },
+  const code = inviteCode.trim().toUpperCase()
+  const { data, error } = await cleanSupabase.functions.invoke('invite-register', {
+    body: { email: normalized, password, invite_code: code },
   })
-  if (error) throw error
-  if (data.session?.user) return { needsVerification: false, profile: await ensureV2Profile(data.session.user) }
-  return { needsVerification: true, profile: null }
+  if (error) {
+    let codeFromResponse = ''
+    try {
+      const response = (error as any)?.context as Response | undefined
+      if (response) codeFromResponse = String((await response.clone().json())?.error || '')
+    } catch { /* response body unavailable */ }
+    throw new Error(codeFromResponse || error.message || 'registration_failed')
+  }
+  if (!data?.ok) throw new Error(String(data?.error || 'registration_failed'))
+
+  const signedIn = await cleanSupabase.auth.signInWithPassword({ email: normalized, password })
+  if (signedIn.error || !signedIn.data.user) throw signedIn.error ?? new Error('registration_login_failed')
+  return { profile: await ensureV2Profile(signedIn.data.user) }
 }
 
 export async function sendPasswordReset(email: string) {
