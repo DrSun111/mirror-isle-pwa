@@ -100,8 +100,14 @@ function AuthV101({ onReady }: { onReady: (profile: CleanProfile) => void }) {
       } catch (error) {
         const raw = error instanceof Error ? error.message : String(error)
         if (/invalid login credentials/i.test(raw)) {
-          const result = await retryLogin(normalizedEmail, password)
-          onReady(result.profile)
+          try {
+            const result = await retryLogin(normalizedEmail, password)
+            onReady(result.profile)
+          } catch {
+            setMode('login')
+            setShowRecovery(true)
+            setMessage('账号已创建，请直接登录')
+          }
           return
         }
         if (/邮箱已注册/.test(raw)) {
@@ -187,10 +193,9 @@ export default function CleanExperience() {
         if (active) setChecking(false)
       }
     })
-    const { data } = cleanSupabase.auth.onAuthStateChange((event, session) => {
+    const { data } = cleanSupabase.auth.onAuthStateChange((event) => {
       if (!active || recovery) return
       if (event === 'SIGNED_OUT') setAuthenticated(false)
-      if (event === 'SIGNED_IN' && session) setAuthenticated(true)
     })
     return () => { active = false; data.subscription.unsubscribe() }
   }, [recovery])
