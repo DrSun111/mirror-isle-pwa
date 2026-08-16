@@ -24,7 +24,7 @@ public class MainActivity extends BridgeActivity {
                 return;
             }
 
-            bridge.eval("document.documentElement.dataset.mirrorReady || ''", value -> {
+            bridge.eval("document.documentElement ? (document.documentElement.dataset.mirrorReady || '') : ''", value -> {
                 if ("\"1\"".equals(value) || "1".equals(value)) {
                     Log.i(BOOT_TAG, "MIRROR_NATIVE_BOOT_READY");
                     bootHandler.removeCallbacks(bootCheck);
