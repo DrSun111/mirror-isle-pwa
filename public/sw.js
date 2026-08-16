@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mirror-isle-v211-webp-motion'
+const CACHE_NAME = 'mirror-isle-v212-product-polish'
 const SHELL = ['./manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png']
 
 self.addEventListener('install', (event) => {
