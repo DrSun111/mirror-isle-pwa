@@ -4,10 +4,7 @@ on:
   push:
     branches:
       - main
-      - feature/mood-treehole-bottles-v013
-      - feature/realtime-drift-wallet-forest-v014
-      - feature/market-ready-auth-mobile-ios-v015
-      - feature/warm-psychometric-online-v016
+      - rewrite/mirror-isle-clean-v1
     tags:
       - "v*"
   workflow_dispatch:
@@ -25,61 +22,40 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-
       - name: Setup Java
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 21
-
       - name: Install dependencies
         run: npm ci
-
       - name: Build web assets
         run: npm run build:pwa
-
       - name: Sync Android
         run: npx cap sync android
-
       - name: Make Gradle executable
         run: chmod +x android/gradlew
-
       - name: Build debug APK
         working-directory: android
         run: ./gradlew assembleDebug
-
       - name: Resolve release version
         id: version
         shell: bash
         run: |
-          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-            VERSION="${GITHUB_REF_NAME}"
-          else
-            VERSION="$(tr -d '\r\n ' < public/install/VERSION)"
-          fi
-          if [[ -z "$VERSION" ]]; then
-            echo "VERSION is empty" >&2
-            exit 1
-          fi
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then VERSION="${GITHUB_REF_NAME}"; else VERSION="$(tr -d '\r\n ' < public/install/VERSION)"; fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-
       - name: Prepare release APK
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          cp android/app/build/outputs/apk/debug/app-debug.apk "mirror-isle-${VERSION}.apk"
-
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk "mirror-isle-${{ steps.version.outputs.version }}.apk"
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: mirror-isle-beta-apk
+          name: mirror-isle-clean-apk
           path: mirror-isle-*.apk
-
       - name: Publish or update public release
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
         env:
@@ -87,15 +63,10 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           ASSET="mirror-isle-${VERSION}.apk"
+          NOTES="镜屿 Clean 重构版：移除旧版多层 DOM/MutationObserver 增强结构，改为单一 React 应用；保留真实 Supabase 账号和云端数据；重新实现邀请注册、心理心谱、匹配遇见、心情月历、心理状态、漂流海、远方来信、看见（树洞/世界/好友）、好友消息和个人关系倾向。重点优化启动速度、页面切换和旧界面残留问题。"
           if gh release view "$VERSION" --repo "${{ github.repository }}" >/dev/null 2>&1; then
             gh release upload "$VERSION" "$ASSET" --clobber --repo "${{ github.repository }}"
-            gh release edit "$VERSION" --repo "${{ github.repository }}" \
-              --title "镜屿 ${VERSION}" \
-              --notes "温馨场景化人格测评、全账号同步心情/树洞/漂流海/回信、手机端安全区优化、邀请码免邮箱验证注册与 iOS 工程。"
+            gh release edit "$VERSION" --repo "${{ github.repository }}" --title "镜屿 ${VERSION}" --notes "$NOTES"
           else
-            gh release create "$VERSION" "$ASSET" \
-              --target "${GITHUB_SHA}" \
-              --repo "${{ github.repository }}" \
-              --title "镜屿 ${VERSION}" \
-              --notes "温馨场景化人格测评、全账号同步心情/树洞/漂流海/回信、手机端安全区优化、邀请码免邮箱验证注册与 iOS 工程。"
+            gh release create "$VERSION" "$ASSET" --target "${GITHUB_SHA}" --repo "${{ github.repository }}" --title "镜屿 ${VERSION}" --notes "$NOTES"
           fi
