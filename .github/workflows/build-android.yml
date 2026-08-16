@@ -7,6 +7,9 @@ on:
       - rewrite/mirror-isle-clean-v1
     tags:
       - "v*"
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -63,7 +66,7 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           ASSET="mirror-isle-${VERSION}.apk"
-          NOTES="镜屿 Clean 重构版：移除旧版多层 DOM/MutationObserver 增强结构，改为单一 React 应用；保留真实 Supabase 账号和云端数据；重新实现邀请注册、心理心谱、匹配遇见、心情月历、心理状态、漂流海、远方来信、看见（树洞/世界/好友）、好友消息和个人关系倾向。重点优化启动速度、页面切换和旧界面残留问题。"
+          NOTES="镜屿 Clean v1.0.1：修复注册后登录链路，增加登录错误本地化与密码找回入口；登录与主要页面升级为更高级、简约、治愈的真实场景视觉，并移除面向开发或解释性的文案。"
           if gh release view "$VERSION" --repo "${{ github.repository }}" >/dev/null 2>&1; then
             gh release upload "$VERSION" "$ASSET" --clobber --repo "${{ github.repository }}"
             gh release edit "$VERSION" --repo "${{ github.repository }}" --title "镜屿 ${VERSION}" --notes "$NOTES"

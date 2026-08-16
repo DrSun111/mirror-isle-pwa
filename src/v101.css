@@ -1,0 +1,44 @@
+:root{--v101-ink:#3f342d;--v101-muted:#8c7e76;--v101-paper:#fffdf9;--v101-cream:#f7f1ea;--v101-peach:#d98467;--v101-peach-deep:#c66f55;--v101-sage:#8fa58f;--v101-line:rgba(77,59,49,.09)}
+.v101-auth,.v101-splash{min-height:100dvh;background:#f5eee7;color:var(--v101-ink)}
+.v101-splash{display:grid;place-items:center;align-content:center;gap:12px;background:radial-gradient(circle at 50% 28%,rgba(255,255,255,.86),transparent 25%),linear-gradient(180deg,#f3e7dc,#f7f3ed)}
+.v101-splash h1{margin:0;font:700 42px/1 "Songti SC","STSong",serif;letter-spacing:.08em}
+.v101-brandmark{display:flex;align-items:center;justify-content:center;gap:3px;width:58px;height:50px;border-radius:20px;color:#9d664f;background:rgba(255,255,255,.78);border:1px solid rgba(255,255,255,.8);box-shadow:0 10px 30px rgba(91,64,49,.09);backdrop-filter:blur(12px)}
+.v101-auth{display:grid;grid-template-rows:minmax(300px,43dvh) 1fr;overflow:hidden;background:#f7f1eb}
+.v101-hero{position:relative;overflow:hidden;background:#c7b9aa}
+.v101-hero>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 48%;transform:scale(1.015)}
+.v101-hero-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(33,27,23,.06) 0%,rgba(54,42,34,.08) 35%,rgba(51,40,33,.5) 100%),linear-gradient(90deg,rgba(250,242,232,.22),transparent 60%)}
+.v101-hero .v101-brandmark{position:absolute;top:calc(18px + env(safe-area-inset-top));right:20px;width:54px;height:48px;background:rgba(255,252,247,.76);box-shadow:0 12px 34px rgba(50,35,27,.15)}
+.v101-hero-copy{position:absolute;left:26px;right:26px;bottom:48px;color:#fff;z-index:2;text-shadow:0 2px 18px rgba(25,18,14,.2)}
+.v101-hero-copy small,.v101-recovery-card>small{font-size:10px;font-weight:800;letter-spacing:.22em}
+.v101-hero-copy h1{margin:14px 0 4px;font:700 clamp(52px,15vw,70px)/.98 "Songti SC","STSong",serif;letter-spacing:.035em}
+.v101-hero-copy p{margin:0;font:15px/1.5 "Songti SC","STSong",serif;letter-spacing:.08em;opacity:.92}
+.v101-auth-card{position:relative;z-index:3;margin-top:-24px;padding:20px 20px calc(26px + env(safe-area-inset-bottom));border-radius:30px 30px 0 0;background:rgba(255,253,250,.985);box-shadow:0 -18px 42px rgba(72,49,38,.11);overflow:auto}
+.v101-switch{display:grid;grid-template-columns:1fr 1fr;padding:4px;margin-bottom:18px;border-radius:16px;background:#f1ebe5}
+.v101-switch button{height:46px;border:0;border-radius:13px;background:transparent;color:#9b8e86;font-weight:750;font-size:16px}
+.v101-switch button.active{background:#fff;color:#5a4438;box-shadow:0 6px 18px rgba(78,55,43,.07)}
+.v101-auth label,.v101-recovery-card label{display:grid;gap:7px;margin-top:12px;color:#76665d;font-size:12px;font-weight:750}
+.v101-auth input,.v101-recovery-card input{height:52px;padding:0 14px;border:1px solid var(--v101-line);border-radius:15px;background:#fcf8f4;color:var(--v101-ink);font-size:16px;outline:none;transition:border-color .18s,box-shadow .18s,background .18s}
+.v101-auth input:focus,.v101-recovery-card input:focus{border-color:rgba(205,120,91,.38);background:#fff;box-shadow:0 0 0 4px rgba(214,135,106,.08)}
+.v101-password{position:relative}.v101-password input{padding-right:52px}.v101-password>button{position:absolute;right:4px;top:4px;width:44px;height:44px;border:0;border-radius:12px;background:transparent;color:#9c8c83;display:grid;place-items:center}
+.v101-primary{width:100%;height:54px;margin-top:16px;border:0;border-radius:16px;color:#fff;background:linear-gradient(135deg,#df8b6e,#c96e52);font-weight:800;font-size:17px;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 14px 30px rgba(184,101,73,.2)}
+.v101-primary:disabled{opacity:.5}.v101-message{margin:11px 0 0;text-align:center;color:#a56650;font-size:12px;line-height:1.5}.v101-link{display:block;margin:10px auto 0;padding:7px 12px;border:0;background:transparent;color:#9a6b58;font-size:12px}
+.v101-recovery-card{width:min(100% - 32px,430px);margin:auto;align-self:center;padding:26px 22px 30px;border-radius:28px;background:#fffdf9;box-shadow:0 26px 70px rgba(68,47,37,.12)}
+.v101-recovery-card .v101-brandmark{margin-bottom:20px}.v101-recovery-card>small{color:#9f7968}.v101-recovery-card h1{margin:8px 0 20px;font:700 32px/1.2 "Songti SC","STSong",serif}
+.auth-note,.privacy-note,.quiet-card,.gate-card>p,.match-hero>p,.home-hero>p,.page-title p,.version{display:none!important}
+body,#root,.app-shell{background:#f4eee7!important}
+.app-content{scrollbar-width:none}.app-content::-webkit-scrollbar{display:none}
+.bottom-nav{background:rgba(255,253,249,.96)!important;backdrop-filter:blur(18px);border-top-color:rgba(80,61,50,.06)!important;box-shadow:0 -12px 28px rgba(72,52,41,.04)}
+.bottom-nav button{transition:transform .16s ease,background .16s ease,color .16s ease}.bottom-nav button:active{transform:scale(.96)}.bottom-nav button.active{background:#f5e7df!important;color:#aa654e!important}
+.page{padding-left:16px!important;padding-right:16px!important}
+.home-hero,.match-hero,.mood-hero,.inbox-hero,.profile-hero,.wellbeing-hero,.sea-hero{border:1px solid rgba(77,59,49,.06)!important;box-shadow:0 16px 38px rgba(67,47,37,.07)!important}
+.home-hero{min-height:190px;background:linear-gradient(135deg,rgba(255,251,246,.9),rgba(243,230,219,.86)),var(--mirror-meet) center/cover!important}
+.home-hero h1{margin-top:36px!important;max-width:85%!important;font-size:31px!important}
+.module-grid{gap:11px!important}.module-grid button{min-height:132px!important;border-radius:24px!important;background:rgba(255,253,249,.94)!important;box-shadow:0 12px 28px rgba(64,47,38,.055)!important;transition:transform .16s ease,box-shadow .16s ease}.module-grid button:active{transform:scale(.975);box-shadow:0 6px 16px rgba(64,47,38,.05)!important}.module-grid strong{font-size:18px!important}.module-grid span{font-size:10px!important;line-height:1.55!important}
+.paper-card,.calendar-card,.letter-card,.inbox-list>article,.post-list>article,.person-card{border-color:rgba(77,59,49,.065)!important;background:rgba(255,253,249,.97)!important;box-shadow:0 12px 32px rgba(65,45,35,.045)!important}
+.seen-title{padding:8px 2px 4px}.seen-title h1{font-size:38px!important;letter-spacing:.05em}.seen-title p{color:#9b887d!important}
+.seen-stack{gap:12px!important}.seen-card{min-height:174px!important;border-radius:26px!important;overflow:hidden!important;box-shadow:0 16px 36px rgba(61,44,36,.09)!important;transition:transform .16s ease}.seen-card:active{transform:scale(.983)}.seen-card.tree{background:linear-gradient(90deg,rgba(43,37,31,.48),rgba(43,37,31,.05)),var(--mirror-treehole) center/cover!important}.seen-card.world{background:linear-gradient(90deg,rgba(43,37,31,.48),rgba(43,37,31,.04)),var(--mirror-meet) center/cover!important}.seen-card.friends{background:linear-gradient(90deg,rgba(43,37,31,.48),rgba(43,37,31,.04)),var(--mirror-chat) center/cover!important}.seen-card>div:first-child{position:relative;z-index:3;color:#fff!important;text-shadow:0 2px 16px rgba(0,0,0,.2)}.seen-card>div:first-child small,.seen-card>div:first-child p{color:rgba(255,255,255,.84)!important}.seen-card .scene{display:none!important}
+.profile-hero{background:linear-gradient(135deg,rgba(255,250,245,.9),rgba(235,229,218,.86)),var(--mirror-mine) center/cover!important}
+.match-hero{background:linear-gradient(135deg,#f7ebe2,#edf1e8)!important}.mood-hero{background:linear-gradient(135deg,#f8e8de,#eef3e8)!important}.wellbeing-hero{background:linear-gradient(135deg,#eaf1e6,#fbede4)!important}.inbox-hero{background:linear-gradient(135deg,#f3ece5,#eef1e9)!important}.sea-hero{background:linear-gradient(160deg,#e5eff0,#d6e6e5)!important}
+.form-message{font-size:11px!important;line-height:1.45!important}
+@media (min-width:520px){.v101-auth{width:min(100%,480px);margin:auto;box-shadow:0 0 70px rgba(58,41,32,.12)}body{background:#ece6df!important}}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
