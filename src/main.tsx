@@ -1,7 +1,7 @@
 import { createRoot } from 'react-dom/client'
 import { Capacitor } from '@capacitor/core'
 import './index.css'
-import CleanExperience from './CleanExperience'
+import MirrorV2Experience from './MirrorV2Experience'
 
 const assetBase = import.meta.env.BASE_URL
 const rootStyle = document.documentElement.style
@@ -12,7 +12,7 @@ rootStyle.setProperty('--mirror-mine', `url("${assetBase}assets/mirror/mine.png"
 
 const root = document.getElementById('root')
 if (root) {
-  createRoot(root).render(<CleanExperience />)
+  createRoot(root).render(<MirrorV2Experience />)
   document.documentElement.dataset.mirrorReady = '1'
   const bootWindow = window as Window & { __mirrorBootComplete?: () => void }
   bootWindow.__mirrorBootComplete?.()
