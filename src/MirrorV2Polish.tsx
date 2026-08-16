@@ -1,6 +1,34 @@
 import { useEffect } from 'react'
-import { POLISH_SCENIC_ATLAS, POLISH_SCENE_POSITIONS, type PolishScene } from './polishScenicAtlas'
+import { getScenicWebp } from './scenicWebp'
 import './mirror-v2-polish.css'
+
+type PolishScene = 'meet'|'record'|'growth'|'world'|'mine'|'drift'
+
+const SCENES: Record<PolishScene, { kind: 'meet'|'record'|'growth'|'world'|'mine'|'drift'; position: string }> = {
+  meet: { kind: 'meet', position: 'center 56%' },
+  record: { kind: 'record', position: 'center 55%' },
+  growth: { kind: 'growth', position: 'center 50%' },
+  world: { kind: 'world', position: 'center 48%' },
+  mine: { kind: 'mine', position: 'center 50%' },
+  drift: { kind: 'drift', position: 'center 58%' },
+}
+
+function ensureAmbient(target: HTMLElement) {
+  if (target.querySelector(':scope > .m2-ambient-orb')) return
+  const orb = document.createElement('i')
+  orb.className = 'm2-ambient-orb'
+  orb.setAttribute('aria-hidden', 'true')
+  target.prepend(orb)
+}
+
+function ensureBottle(target: HTMLElement) {
+  if (target.querySelector(':scope > .m2-floating-bottle')) return
+  const bottle = document.createElement('i')
+  bottle.className = 'm2-floating-bottle'
+  bottle.setAttribute('aria-hidden', 'true')
+  bottle.style.backgroundImage = `url("${getScenicWebp('bottle')}")`
+  target.append(bottle)
+}
 
 function setSceneArt(target: Element | null, scene: PolishScene, extraClass = '') {
   if (!(target instanceof HTMLElement)) return
@@ -11,13 +39,16 @@ function setSceneArt(target: Element | null, scene: PolishScene, extraClass = ''
     art.className = `m2-polish-art ${extraClass}`.trim()
     target.prepend(art)
   }
+  const config = SCENES[scene]
   art.dataset.scene = scene
-  art.style.backgroundImage = `url("${POLISH_SCENIC_ATLAS}")`
-  art.style.backgroundSize = '200% 300%'
-  art.style.backgroundPosition = POLISH_SCENE_POSITIONS[scene]
+  art.style.backgroundImage = `url("${getScenicWebp(config.kind)}")`
+  art.style.backgroundSize = 'cover'
+  art.style.backgroundPosition = config.position
   art.style.backgroundRepeat = 'no-repeat'
   const oldScenic = target.querySelector(':scope > .m2-scenic')
   if (oldScenic instanceof HTMLElement) oldScenic.classList.add('m2-polish-hidden-scenic')
+  ensureAmbient(target)
+  if (scene === 'drift') ensureBottle(target)
 }
 
 function setPageBackdrop(page: HTMLElement, scene: PolishScene) {
@@ -27,9 +58,10 @@ function setPageBackdrop(page: HTMLElement, scene: PolishScene) {
     backdrop.className = 'm2-polish-page-scene'
     page.prepend(backdrop)
   }
-  backdrop.style.backgroundImage = `url("${POLISH_SCENIC_ATLAS}")`
-  backdrop.style.backgroundSize = '200% 300%'
-  backdrop.style.backgroundPosition = POLISH_SCENE_POSITIONS[scene]
+  const config = SCENES[scene]
+  backdrop.style.backgroundImage = `url("${getScenicWebp(config.kind)}")`
+  backdrop.style.backgroundSize = 'cover'
+  backdrop.style.backgroundPosition = config.position
   backdrop.style.backgroundRepeat = 'no-repeat'
 }
 
@@ -80,6 +112,35 @@ function applyRecordNavigation(page: HTMLElement) {
   if (!scroll.dataset.recordView) scroll.dataset.recordView = 'mood'
 }
 
+function applyImageFallbacks() {
+  document.querySelectorAll('.m2-mini-photo').forEach((node) => {
+    if (!(node instanceof HTMLElement)) return
+    const scenic = node.querySelector(':scope > .m2-scenic') as HTMLElement | null
+    if (!scenic) return
+    scenic.classList.add('m2-polish-hidden-scenic')
+    node.classList.add('m2-webp-fallback')
+    node.style.backgroundImage = `url("${getScenicWebp('recommend')}")`
+  })
+
+  document.querySelectorAll('.m2-high-grid article > div').forEach((node) => {
+    if (!(node instanceof HTMLElement)) return
+    const scenic = node.querySelector(':scope > .m2-scenic') as HTMLElement | null
+    if (!scenic) return
+    scenic.classList.add('m2-polish-hidden-scenic')
+    node.classList.add('m2-webp-fallback')
+    node.style.backgroundImage = `url("${getScenicWebp('growth')}")`
+  })
+
+  const themeKinds = ['meet', 'drift', 'auth'] as const
+  document.querySelectorAll('.m2-theme-grid > button').forEach((node, index) => {
+    if (!(node instanceof HTMLElement)) return
+    const scenic = node.querySelector(':scope > .m2-scenic') as HTMLElement | null
+    if (scenic) scenic.classList.add('m2-polish-hidden-scenic')
+    node.classList.add('m2-theme-webp')
+    node.style.backgroundImage = `url("${getScenicWebp(themeKinds[index] || themeKinds[0])}")`
+  })
+}
+
 function applyPolish() {
   const pages = Array.from(document.querySelectorAll('.m2-page')) as HTMLElement[]
   pages.forEach((page) => {
@@ -108,6 +169,7 @@ function applyPolish() {
   })
 
   document.querySelectorAll('.m2-drift-visual').forEach((target) => setSceneArt(target, 'drift'))
+  applyImageFallbacks()
 }
 
 export default function MirrorV2Polish() {
