@@ -34,11 +34,11 @@ img,video{max-width:100%}
 
 /* auth */
 .m2-auth{min-height:100dvh;background:var(--m2-bg);display:flex;flex-direction:column;overflow:hidden}
-.m2-auth-hero{height:min(45dvh,500px);min-height:340px;position:relative;overflow:hidden;background:#efe5d7}
-.m2-auth-hero .hero-image{position:absolute;inset:0;filter:saturate(.8) brightness(1.04)}
-.m2-auth-gradient{position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,250,244,.05) 0,rgba(248,242,232,.12) 42%,rgba(246,240,231,.78) 100%)}
+.m2-auth-hero{height:min(43dvh,480px);min-height:320px;position:relative;overflow:hidden;background:#e9efea}
+.m2-auth-hero .hero-image{position:absolute;inset:0;object-position:center 46%;filter:none;transform:scale(1.015)}
+.m2-auth-gradient{position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.05) 0,rgba(250,248,241,.05) 48%,rgba(248,246,240,.74) 100%)}
 .m2-auth-brand{position:absolute;top:max(34px,calc(env(safe-area-inset-top) + 18px));left:30px;right:30px;display:flex;align-items:center;justify-content:space-between;color:#6c584f;letter-spacing:.2em;font-size:13px;font-weight:700}.m2-auth-brand div{display:flex;gap:8px}
-.m2-auth-copy{position:absolute;left:34px;bottom:42px}.m2-auth-copy h1{font:500 clamp(58px,12vw,92px)/.95 "Songti SC","STSong",serif;margin:0 0 16px;letter-spacing:.04em}.m2-auth-copy p{font:400 22px/1.4 "Songti SC","STSong",serif;color:#877970;margin:0}
+.m2-auth-copy{position:absolute;left:34px;bottom:34px;text-shadow:0 1px 0 rgba(255,255,255,.45)}.m2-auth-copy h1{font:500 clamp(58px,12vw,92px)/.95 "Songti SC","STSong",serif;margin:0 0 16px;letter-spacing:.04em}.m2-auth-copy p{font:400 22px/1.4 "Songti SC","STSong",serif;color:#877970;margin:0}
 .m2-auth-panel{width:min(100%,620px);margin:-22px auto 0;position:relative;z-index:2;background:var(--m2-card);border-radius:36px 36px 0 0;padding:28px max(24px,6vw) calc(26px + env(safe-area-inset-bottom));box-shadow:0 -8px 28px rgba(90,70,50,.05);flex:1}
 .m2-auth-switch{display:grid;grid-template-columns:1fr 1fr;background:var(--m2-card-2);padding:5px;border-radius:19px;margin-bottom:24px}.m2-auth-switch button{height:52px;border:0;background:transparent;border-radius:15px;font-size:18px;font-weight:700;color:#9b8f87}.m2-auth-switch button.active{background:#fff;box-shadow:0 5px 18px rgba(87,68,54,.09);color:#59453d}
 .m2-auth-panel label,.m2-composer label,.m2-onboarding label{display:grid;gap:8px;margin:14px 0}.m2-auth-panel label>span,.m2-composer label>span,.m2-onboarding label>span{font-size:14px;font-weight:700;color:#746960}
