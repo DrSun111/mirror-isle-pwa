@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "postinstall": "node scripts/patch-capacitor-system-bars.mjs",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "build:pwa": "tsc -b && vite build --base ./",
