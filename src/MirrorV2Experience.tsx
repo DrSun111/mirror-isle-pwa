@@ -6,6 +6,7 @@ import {
   Waves, Wind, X,
 } from 'lucide-react'
 import AssessmentSceneArt, { type SceneKind } from './AssessmentSceneArt'
+import { AUTH_HERO_IMAGE } from './authHeroImage'
 import { assessments, scoreAssessment, type AssessmentDefinition } from './psychAssessments'
 import {
   addPostComment, applyIpipScores, cleanSupabase, connectWithUser, createFeedPost, createPrivateNote,
@@ -170,16 +171,16 @@ function AuthScreen({ onReady }: {onReady:(profile:MirrorV2Profile)=>void}) {
 
   return <main className="m2-auth">
     <section className="m2-auth-hero">
-      <Scenic file="auth-landscape.svg" className="hero-image"/>
+      <img className="m2-scenic hero-image" src={AUTH_HERO_IMAGE} alt="" decoding="async"/>
       <div className="m2-auth-gradient"/>
       <div className="m2-auth-brand"><span>MIRROR ISLE</span><div><Leaf size={17}/><Wind size={17}/></div></div>
       <div className="m2-auth-copy"><h1>镜屿</h1><p>寻找世界上另一个自己</p></div>
     </section>
     <section className="m2-auth-panel">
-      <div className="m2-auth-switch"><button className={mode==='login'?'active':''} onClick={()=>{setMode('login');setMessage('')}}>登录</button><button className={mode==='register'?'active':''} onClick={()=>{setMode('register');setMessage('')}}>注册</button></div>
+      <div className="m2-auth-switch"><button className={mode==='login'?'active':''} onClick={()=>{setMode('login');setMessage('')}}>登录</button><button className={mode==='register'?'active':''} onClick={()=>{setMode('register');setMessage('')}}>推荐码注册</button></div>
       <label><span>邮箱</span><input value={email} onChange={e=>setEmail(e.target.value)} autoCapitalize="none" inputMode="email" autoComplete="email" placeholder="name@example.com"/></label>
       <label><span>密码</span><div className="m2-password"><input type={showPassword?'text':'password'} value={password} onChange={e=>setPassword(e.target.value)} autoComplete={mode==='login'?'current-password':'new-password'} placeholder={mode==='login'?'请输入密码':'至少 6 位'}/><button type="button" onClick={()=>setShowPassword(v=>!v)}>{showPassword?<EyeOff size={18}/>:<Eye size={18}/>}</button></div></label>
-      {mode==='register'&&<><label><span>确认密码</span><input type="password" value={confirm} onChange={e=>setConfirm(e.target.value)} autoComplete="new-password" placeholder="再次输入密码"/></label><label><span>推荐码</span><input value={inviteCode} onChange={e=>setInviteCode(e.target.value.toUpperCase())} autoCapitalize="characters" autoComplete="off" maxLength={24} placeholder="请输入推荐码"/></label></>}
+      {mode==='register'&&<><label><span>确认密码</span><input type="password" value={confirm} onChange={e=>setConfirm(e.target.value)} autoComplete="new-password" placeholder="再次输入密码"/></label><label className="m2-invite-field"><span>推荐码</span><input value={inviteCode} onChange={e=>setInviteCode(e.target.value.toUpperCase())} autoCapitalize="characters" autoComplete="off" maxLength={24} placeholder="请输入推荐码，如 JY888"/></label></>}
       <button className="m2-primary" disabled={busy} onClick={()=>void submit()}>{busy?'请稍候…':mode==='login'?'进入镜屿':'创建账号'}</button>
       {message&&<p className="m2-form-message">{message}</p>}
       {mode==='login'&&<button className="m2-text-button" disabled={busy} onClick={()=>void reset()}>忘记密码</button>}
