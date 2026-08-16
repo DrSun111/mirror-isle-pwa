@@ -10,8 +10,8 @@ export default function PasswordRecoveryV2({ onDone }: { onDone: () => void | Pr
   const [message, setMessage] = useState('')
 
   const submit = async () => {
-    if (password.length < 8) {
-      setMessage('新密码至少需要 8 位')
+    if (password.length < 6) {
+      setMessage('新密码至少需要 6 位')
       return
     }
     if (password !== confirm) {
