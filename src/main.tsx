@@ -13,10 +13,9 @@ rootStyle.setProperty('--mirror-mine', `url("${assetBase}assets/mirror/mine.png"
 const root = document.getElementById('root')
 if (root) {
   createRoot(root).render(<CleanExperience />)
-  window.requestAnimationFrame(() => {
-    const bootWindow = window as Window & { __mirrorBootComplete?: () => void }
-    bootWindow.__mirrorBootComplete?.()
-  })
+  document.documentElement.dataset.mirrorReady = '1'
+  const bootWindow = window as Window & { __mirrorBootComplete?: () => void }
+  bootWindow.__mirrorBootComplete?.()
 }
 
 if (!Capacitor.isNativePlatform() && 'serviceWorker' in navigator) {
