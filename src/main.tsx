@@ -13,6 +13,7 @@ const App = lazy(async () => {
   const module = await import('./App.tsx')
   document.documentElement.dataset.mirrorReady = '1'
   bootWindow.__mirrorBootComplete?.()
+  console.info('MIRROR_BOOT_READY')
   return module
 })
 
