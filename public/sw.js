@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mirror-isle-v203-beta'
+const CACHE_NAME = 'mirror-isle-v210-beta'
 const SHELL = ['./manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png']
 
 self.addEventListener('install', (event) => {
