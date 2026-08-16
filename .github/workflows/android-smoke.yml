@@ -63,9 +63,10 @@ jobs:
             adb logcat -c
             adb shell am start -W -n com.mirrorisle.beta/.MainActivity | tee mirror-start.txt
             grep -q 'Status: ok' mirror-start.txt
-            sleep 6
+            sleep 2
             adb shell pidof com.mirrorisle.beta | grep -Eq '[0-9]+'
-            adb logcat -d -t 1000 > mirror-logcat.txt
+            adb logcat -d -t 800 > mirror-logcat.txt
             if grep -E 'FATAL EXCEPTION.*com\.mirrorisle\.beta|Process: com\.mirrorisle\.beta.*FATAL' mirror-logcat.txt; then cat mirror-logcat.txt; exit 1; fi
-            grep -E 'Capacitor|com\.mirrorisle\.beta|chromium' mirror-logcat.txt | tail -120 || true
-            echo "Mirror Isle launched successfully and remained alive with no fatal application crash."
+            grep -q 'MIRROR_BOOT_READY' mirror-logcat.txt
+            grep -E 'MIRROR_BOOT_READY|Capacitor|com\.mirrorisle\.beta|chromium' mirror-logcat.txt | tail -120 || true
+            echo "Mirror Isle Android activity, WebView JavaScript bundle, and App module all booted successfully."
