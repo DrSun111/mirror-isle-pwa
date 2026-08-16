@@ -96,7 +96,7 @@ function avg(values: number[]) {
   return values.reduce((a, b) => a + b, 0) / Math.max(1, values.length)
 }
 
-export function scoreAssessment(def: AssessmentDefinition, responses: Record<string, number>) {
+export function scoreAssessment(def: AssessmentDefinition, responses: Record<string, number>): any {
   if (def.id === 'ipip20') {
     const scored: Record<string, number> = {}
     def.items.forEach((item) => {
