@@ -286,7 +286,7 @@ export async function fetchRecommendationsV2(limit = 12) {
     anchors: row.anchors || [],
     age_confirmed: true,
     profile_complete: true,
-    profession: '',
+    profession: row.profession || '',
     birth_date: '',
     theme: 'green_morning' as ThemeKey,
     traits: {},
