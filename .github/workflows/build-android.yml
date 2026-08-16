@@ -66,7 +66,7 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           ASSET="mirror-isle-${VERSION}.apk"
-          NOTES="镜屿 v2.0.2-beta：注册改为邮箱 + 密码 + 推荐码，无需邮箱验证码；推荐码校验走服务端，当前有效推荐码为 JY888。同步优化注册错误提示、自动登录衔接与缓存版本。"
+          NOTES="镜屿 v2.0.3-beta：注册明确改为邮箱 + 密码 + 推荐码，当前有效推荐码为 JY888，不再走邮箱验证码；清空旧测试账号后重新注册。登录背景替换为生成式晨雾湖山治愈插画，并针对手机登录页完成裁切、留白与层级优化。"
           if gh release view "$VERSION" --repo "${{ github.repository }}" >/dev/null 2>&1; then
             gh release upload "$VERSION" "$ASSET" --clobber --repo "${{ github.repository }}"
             gh release edit "$VERSION" --repo "${{ github.repository }}" --title "镜屿 ${VERSION}" --notes "$NOTES"
